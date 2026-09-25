@@ -71,7 +71,7 @@ impl MemoryUpdater {
     /// The block appended to the coach prompt when a memory exists.
     pub fn prompt_section(memory: &str) -> String {
         format!(
-            "\n\nWHAT YOU HAVE LEARNED ABOUT HER SO FAR\nYou wrote these notes after earlier pages; she or the person who set this up may have edited them. Use them to make replies specific to her, her store and her work. They are still not her training: never state a store policy as fact because of them.\n{}",
+            "\n\nWHAT YOU HAVE LEARNED ABOUT HER SO FAR\nYou wrote these notes after earlier pages; she or the person who set this up may have edited them. Use them to answer her questions and to make replies specific to her, her store and her work. Where they record what she was told, say so (you were told...).\n{}",
             memory
         )
     }

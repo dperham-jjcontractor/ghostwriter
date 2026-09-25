@@ -17,7 +17,7 @@ Write the request on the page and tap: "quiz me", "summarize this", "make this a
 ## Good to know
 
 - One topic per page works best: one training session, one product, one shift, or your questions.
-- The coach does not know your store's rules. Anything it says about policy is a question to confirm with your manager. Lines marked `(general)` are general retail knowledge, not something you were told.
+- The coach knows Talbots' published policies and general retail practice, not how your store applies them day to day. Lines marked `(published policy)` or `(general)` come from that knowledge, not from your training.
 - Do not write customer names, phone numbers or card details on pages you send. The whole page goes to an AI service. Check with your manager that using an AI note coach is fine, and keep pricing sheets and security notes off coached pages.
 - After the tablet wakes from sleep, give it a few seconds before the first tap so Wi-Fi can reconnect.
 - The tablet may offer a software update. Do not install it; tell the person who set this up.

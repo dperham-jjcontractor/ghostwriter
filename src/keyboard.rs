@@ -272,7 +272,11 @@ impl Keyboard {
             trimmed.to_string()
         };
         if capped != text.trim() {
-            log::warn!("Reply folded or capped: {} chars in, {} chars typed", text.chars().count(), capped.chars().count());
+            log::warn!(
+                "Reply folded or capped: {} chars in, {} chars typed",
+                text.chars().count(),
+                capped.chars().count()
+            );
         }
         capped
     }
@@ -394,7 +398,10 @@ mod tests {
 
     #[test]
     fn folds_common_model_output_to_ascii() {
-        assert_eq!(Keyboard::fold_to_ascii("Key \u{2014} \u{201C}fit\u{201D} \u{2192} ask \u{2026}"), "Key - \"fit\" -> ask ...");
+        assert_eq!(
+            Keyboard::fold_to_ascii("Key \u{2014} \u{201C}fit\u{201D} \u{2192} ask \u{2026}"),
+            "Key - \"fit\" -> ask ..."
+        );
         assert_eq!(Keyboard::fold_to_ascii("\u{2022} caf\u{00E9} \u{2018}ok\u{2019}"), "- cafe 'ok'");
         assert_eq!(Keyboard::fold_to_ascii("plain ASCII stays\n"), "plain ASCII stays\n");
         assert_eq!(Keyboard::fold_to_ascii("emoji \u{1F600} gone"), "emoji  gone");

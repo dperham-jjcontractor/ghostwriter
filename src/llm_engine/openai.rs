@@ -65,11 +65,12 @@ impl OpenAI {
         text.starts_with("API 408") || text.starts_with("API 429") || text.starts_with("API 5")
     }
 
-    async fn send_once(&self, body: &json) -> Result<json> {
-        let response = self
-            .client
-            .post(format!("{}/v1/chat/completions", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.api_key))
+    /// One HTTP attempt. Takes the fields it needs instead of `&self` so the
+    /// future stays `Send`: the tool callbacks inside `self` are not `Sync`.
+    async fn send_once(client: &reqwest::Client, base_url: &str, api_key: &str, body: &json) -> Result<json> {
+        let response = client
+            .post(format!("{}/v1/chat/completions", base_url))
+            .header("Authorization", format!("Bearer {}", api_key))
             .header("Content-Type", "application/json")
             .json(body)
             .send()
@@ -92,7 +93,10 @@ impl OpenAI {
             anyhow::bail!("No tool registered with name {}", name);
         };
         let Some(callback) = &mut tool.callback else {
-            status_update!(*status_callback, super::ModelExecutionStatus::Error("No callback registered for tool".to_string()));
+            status_update!(
+                *status_callback,
+                super::ModelExecutionStatus::Error("No callback registered for tool".to_string())
+            );
             anyhow::bail!("No callback registered for tool {}", name);
         };
 
@@ -183,7 +187,8 @@ impl LLMEngine for OpenAI {
         let mut attempt = 0u32;
         let response: json = loop {
             attempt += 1;
-            match with_cancellation(self.send_once(&body), cancellation).await {
+            let request = Self::send_once(&self.client, &self.base_url, &self.api_key, &body);
+            match with_cancellation(request, cancellation).await {
                 Ok(response) => break response,
                 Err(error) if attempt < RETRY_ATTEMPTS && Self::is_retryable(&error) && !cancellation.should_cancel() => {
                     warn!(
@@ -228,7 +233,10 @@ impl LLMEngine for OpenAI {
             return self.call_tool("draw_text", json!({ "text": text }), &mut status_callback);
         }
 
-        status_update!(status_callback, super::ModelExecutionStatus::Error("No tool calls found in response".to_string()));
+        status_update!(
+            status_callback,
+            super::ModelExecutionStatus::Error("No tool calls found in response".to_string())
+        );
         anyhow::bail!("Model returned neither text nor a tool call (finish_reason={})", finish_reason)
     }
 }

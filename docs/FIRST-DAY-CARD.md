@@ -1,0 +1,34 @@
+# Your notes coach
+
+Print the short version and tuck it into the tablet's folio.
+
+## The short version
+
+1. Write your notes as usual. Print rather than cursive when you can.
+2. When a page is done, hide the toolbar, then tap the **top-right corner** once with a fingertip.
+3. "Thinking..." appears under your notes. The reply arrives in 10 to 30 seconds and starts with `-- COACH --`.
+4. Do not touch the screen while it is working. Keep writing below the reply afterwards if you like.
+5. Nothing happened? Make sure a notebook page is open, wait a few seconds, and tap the corner again.
+
+## Good to know
+
+- One topic per page works best: one training session, one product, one shift, or your questions.
+- The coach does not know your store's rules. Anything it says about policy is a question to confirm with your manager. Lines marked `(general)` are general retail knowledge, not something you were told.
+- Do not write customer names, phone numbers or card details on pages you send. The whole page goes to an AI service. Check with your manager that using an AI note coach is fine, and keep pricing sheets and security notes off coached pages.
+- After the tablet wakes from sleep, give it a few seconds before the first tap so Wi-Fi can reconnect.
+- The tablet may offer a software update. Do not install it; tell the person who set this up.
+
+## If you see a message instead of a reply
+
+| Message | What to do |
+|---|---|
+| No internet connection. Check Wi-Fi, then tap the corner again. | Turn Wi-Fi on or wait for it to reconnect, then tap again. |
+| The AI service is busy right now. Please tap again in a minute. | Wait a minute and tap again. |
+| The assistant is not set up yet (no API key). | Tell the person who set this up. |
+| Something went wrong. Please tap again in a moment. | Tap again. If it keeps happening, tell the person who set this up. |
+
+Messages erase themselves after about ten seconds. Only coach replies stay on the page.
+
+## Is it on?
+
+Write "hello" on a fresh page and tap the corner. If "Thinking" appears within a few seconds, the coach is running. If nothing appears after two tries, it has stopped; the person who set it up can restart it.

@@ -1,0 +1,27 @@
+[Unit]
+Description=Ghostwriter notes coach (reMarkable)
+# xochitl is the tablet's own UI; the touch and keyboard devices exist once it is up.
+After=xochitl.service network-online.target
+Wants=network-online.target
+# Restart on crashes, but stop trying after 5 failures in 5 minutes so a broken
+# setup cannot loop forever.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+# Everything lives under /home/root because firmware updates replace /etc.
+WorkingDirectory=/home/root/ghostwriter
+Environment=HOME=/home/root
+Environment=RUST_BACKTRACE=1
+# Holds OPENAI_API_KEY=...; created by install.sh with mode 600.
+EnvironmentFile=-/home/root/ghostwriter/.env
+# Wait (up to a minute) for the tablet UI before starting, then give it a moment.
+ExecStartPre=/bin/sh -c 'i=0; while ! pidof xochitl >/dev/null 2>&1; do i=$((i+1)); [ $i -ge 60 ] && exit 0; sleep 1; done; sleep 3'
+# No flags: everything comes from /home/root/.ghostwriter.toml.
+ExecStart=/home/root/ghostwriter/ghostwriter
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

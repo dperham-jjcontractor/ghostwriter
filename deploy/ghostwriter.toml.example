@@ -1,0 +1,29 @@
+# Ghostwriter settings. Lives at /home/root/.ghostwriter.toml on the tablet.
+# Precedence: these values < GHOSTWRITER_* environment variables < command-line flags.
+# After changing this file: systemctl restart ghostwriter
+
+# Which model reads the page. gpt-6-sol reads handwriting well at about a cent
+# per tap; gpt-6-luna is much cheaper and worth trying once things work.
+model = "gpt-6-sol"
+
+# Which prompt to use: a bundled name, or a file path. coach.json is the notes coach.
+# A copy at /home/root/ghostwriter/prompts/coach.json overrides the bundled one and
+# is picked up on the next tap, no restart needed.
+prompt = "coach.json"
+
+# Corner to tap: UR, UL, LR or LL. If a newer firmware puts the tablet's own close
+# button in the upper-right corner, switch a right-handed writer to LL (lower-left).
+trigger_corner = "UR"
+
+# The API key normally lives in /home/root/ghostwriter/.env as OPENAI_API_KEY=...
+# It can be set here instead:
+# engine_api_key = "sk-..."
+
+# Text only: the assistant types, it never draws on the page.
+no_svg = true
+
+# info is enough day to day. debug logs are large and include request details.
+log_level = "info"
+
+# The settings web page stays off: it has no password, and it is not needed.
+web_server = false

@@ -1,3 +1,16 @@
+## This fork: a notes coach for the reMarkable 2
+
+This fork of [awwaiid/ghostwriter](https://github.com/awwaiid/ghostwriter) turns the experiment into an appliance for one person: write notes on the tablet, tap a corner, and a short typed evaluation with recommendations appears under the notes. It is text-only, starts on boot, and never draws on the page.
+
+- Set it up from a Windows PC: [docs/OWNER-SETUP.md](docs/OWNER-SETUP.md)
+- The card for the person using it: [docs/FIRST-DAY-CARD.md](docs/FIRST-DAY-CARD.md)
+- The coach's instructions: [prompts/coach.txt](prompts/coach.txt)
+- Default engine is OpenAI (`gpt-6-sol`); the key lives in `/home/root/ghostwriter/.env` on the tablet.
+
+The original README follows.
+
+---
+
 ## **MAIN IDEA**
 > An experiment for the reMarkable that watches what you write and, when prompted either with a gesture or some on-screen content, can write back to the screen. This is an exploration of various interactions through this handwriting+screen medium.
 

@@ -242,11 +242,7 @@ impl Pen {
         if page_sized {
             self.draw_svg_paths(svg_data)
         } else {
-            info!(
-                "SVG is {}x{}, not page-sized; drawing it with the raster renderer",
-                size.width(),
-                size.height()
-            );
+            info!("SVG is {}x{}, not page-sized; drawing it with the raster renderer", size.width(), size.height());
             let scale = 2u32;
             let alpha = crate::util::svg_to_alpha_bitmap(svg_data, VIRTUAL_WIDTH * scale, VIRTUAL_HEIGHT * scale)?;
             self.draw_bitmap_alpha_pressure(&alpha, scale)

@@ -2,9 +2,8 @@ name: Code Quality
 
 on:
   push:
-    branches: [ main, clean-up ]
   pull_request:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   format:

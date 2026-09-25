@@ -4,3 +4,7 @@
 .aider*
 
 **/.claude/settings.local.json
+
+# Local evaluation output and stray scp targets
+evaluation_results/
+root@*

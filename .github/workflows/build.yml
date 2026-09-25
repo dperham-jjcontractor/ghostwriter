@@ -8,6 +8,10 @@ on:
 env:
   CARGO_TERM_COLOR: never
 
+# Needed to attach the binary to a Release on tag pushes.
+permissions:
+  contents: write
+
 jobs:
   test-host:
     name: Host tests (x86_64 Linux)

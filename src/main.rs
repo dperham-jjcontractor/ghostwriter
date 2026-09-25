@@ -230,7 +230,9 @@ macro_rules! lock {
 }
 
 /// Longest reply that will be typed; anything past this is cut with an ellipsis.
-const MAX_REPLY_CHARS: usize = 900;
+/// The prompt keeps normal replies under 700 characters and allows up to 1400
+/// when she asks for more detail; this is the hard stop above that.
+const MAX_REPLY_CHARS: usize = 1600;
 
 fn draw_text(text: &str, keyboard: &mut Keyboard) -> Result<()> {
     info!("Drawing text to the screen.");

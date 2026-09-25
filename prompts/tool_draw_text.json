@@ -7,7 +7,7 @@
     "properties": {
       "text": {
         "type": "string",
-        "description": "The complete reply to type. Plain ASCII only, no markdown, under 700 characters."
+        "description": "The complete reply to type. Plain ASCII only, no markdown, normally under 700 characters."
       }
     },
     "required": ["text"]

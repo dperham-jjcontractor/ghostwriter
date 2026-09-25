@@ -21,6 +21,9 @@ pub struct OpenAI {
     model: String,
     base_url: String,
     api_key: String,
+    /// Sent as reasoning_effort when non-empty. gpt-6 models reject function
+    /// tools on chat completions unless this is "none".
+    reasoning_effort: String,
     tools: Vec<Tool>,
     content: Vec<json>,
     client: reqwest::Client,
@@ -112,6 +115,7 @@ impl LLMEngine for OpenAI {
         let api_key = option_or_env(options, "api_key", "OPENAI_API_KEY");
         let base_url = option_or_env_fallback(options, "base_url", "OPENAI_BASE_URL", "https://api.openai.com");
         let model = options.get("model").cloned().unwrap_or_else(|| crate::config::DEFAULT_MODEL.to_string());
+        let reasoning_effort = options.get("reasoning_effort").cloned().unwrap_or_default();
         let client = reqwest::Client::builder()
             .connect_timeout(CONNECT_TIMEOUT)
             .timeout(REQUEST_TIMEOUT)
@@ -125,6 +129,7 @@ impl LLMEngine for OpenAI {
             model,
             base_url,
             api_key,
+            reasoning_effort,
             tools: Vec::new(),
             content: Vec::new(),
             client,
@@ -164,7 +169,7 @@ impl LLMEngine for OpenAI {
             anyhow::bail!("No API key configured: set OPENAI_API_KEY (for example in /home/root/ghostwriter/.env) or engine_api_key in ~/.ghostwriter.toml");
         }
 
-        let body = json!({
+        let mut body = json!({
             "model": self.model,
             "messages": [{
                 "role": "user",
@@ -175,6 +180,9 @@ impl LLMEngine for OpenAI {
             "parallel_tool_calls": false,
             "max_completion_tokens": MAX_COMPLETION_TOKENS,
         });
+        if !self.reasoning_effort.is_empty() {
+            body["reasoning_effort"] = json!(self.reasoning_effort);
+        }
 
         debug!("Request: {}", Self::body_for_log(&body));
 

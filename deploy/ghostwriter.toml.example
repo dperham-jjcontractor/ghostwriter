@@ -19,6 +19,10 @@ trigger_corner = "UR"
 # It can be set here instead:
 # engine_api_key = "sk-..."
 
+# How hard the model thinks before answering: "none" is fastest and is required for
+# gpt-6 models to use tools on this endpoint; "low" or "medium" for slower, deeper replies.
+openai_reasoning_effort = "none"
+
 # Text only: the assistant types, it never draws on the page.
 no_svg = true
 

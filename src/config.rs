@@ -41,6 +41,10 @@ pub struct Config {
     pub trigger_corner: String,
     pub web_server: bool,
     pub web_port: u16,
+    /// OpenAI reasoning_effort ("none", "low", "medium", "high"; empty = omit).
+    /// gpt-6 models only allow tool calls on chat completions with "none",
+    /// which also gives the fastest replies.
+    pub openai_reasoning_effort: String,
     // Simulation/test mode options
     pub test_mode: Option<String>,
     pub test_device_model: Option<DeviceModel>,
@@ -79,6 +83,7 @@ impl Default for Config {
             trigger_corner: "UR".to_string(),
             web_server: false,
             web_port: 8080,
+            openai_reasoning_effort: "none".to_string(),
             // Simulation/test mode defaults
             test_mode: None,
             test_device_model: None,

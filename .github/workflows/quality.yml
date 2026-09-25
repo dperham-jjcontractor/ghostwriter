@@ -5,8 +5,8 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Each job copies its output into the run summary, which is readable on the
-# run page without signing in to GitHub (raw logs are not).
+# Each job turns its output into annotations and a step summary (see
+# .github/publish-log.sh) so failures can be read without signing in.
 jobs:
   format:
     name: Check Formatting
@@ -18,10 +18,10 @@ jobs:
           components: rustfmt
       - name: Check formatting
         run: |
-          set -o pipefail
-          cargo fmt -- --check 2>&1 | tee fmt.txt || status=$?
-          { echo '### rustfmt'; echo '```diff'; cat fmt.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          exit ${status:-0}
+          set +e
+          cargo fmt -- --check 2>&1 | tee fmt.txt; status=${PIPESTATUS[0]}
+          bash .github/publish-log.sh fmt.txt rustfmt "$status"
+          exit "$status"
 
   lint:
     name: Clippy Linting
@@ -34,10 +34,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Run clippy
         run: |
-          set -o pipefail
-          cargo clippy --all-targets -- -D warnings 2>&1 | tee clippy.txt || status=$?
-          { echo '### clippy'; echo '```'; grep -v '^ *Compiling\|^ *Checking\|^ *Downloaded\|^ *Downloading' clippy.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          exit ${status:-0}
+          set +e
+          cargo clippy --all-targets -- -D warnings 2>&1 | tee clippy.txt; status=${PIPESTATUS[0]}
+          bash .github/publish-log.sh clippy.txt clippy "$status"
+          exit "$status"
 
   check:
     name: Check Compilation
@@ -48,7 +48,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Check code compiles
         run: |
-          set -o pipefail
-          cargo check --all-targets --all-features 2>&1 | tee check.txt || status=$?
-          { echo '### cargo check'; echo '```'; grep -v '^ *Compiling\|^ *Checking\|^ *Downloaded\|^ *Downloading' check.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          exit ${status:-0}
+          set +e
+          cargo check --all-targets --all-features 2>&1 | tee check.txt; status=${PIPESTATUS[0]}
+          bash .github/publish-log.sh check.txt "cargo check" "$status"
+          exit "$status"

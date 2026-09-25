@@ -8,3 +8,7 @@
 # Local evaluation output and stray scp targets
 evaluation_results/
 root@*
+
+# Personal store context and the prompt built from it stay off GitHub (the repo is public)
+prompts/store-context.txt
+prompts/coach.local.json

@@ -26,7 +26,11 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $target = "root@$Tablet"
 
 if (-not (Test-Path $Binary)) { throw "Binary not found: $Binary" }
-$coach = Join-Path $here "..\prompts\coach.json"
+# coach.local.json (built by tools\make-prompt-json.ps1 from coach.txt + store-context.txt) is
+# the personalised prompt and stays out of git; fall back to the generic coach.json.
+$coach = Join-Path $here "..\prompts\coach.local.json"
+if (-not (Test-Path $coach)) { $coach = Join-Path $here "..\prompts\coach.json" }
+Write-Host "Prompt: $coach"
 
 Write-Host "Copying files to $target ..."
 ssh $target "mkdir -p /home/root/ghostwriter/prompts"

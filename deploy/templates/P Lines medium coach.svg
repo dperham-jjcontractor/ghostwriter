@@ -24,14 +24,14 @@
 <path style="fill:none;stroke-width:0.5;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(0%,0%,0%);stroke-opacity:1;stroke-miterlimit:10;" d="M 0 0 L 1404 0 " transform="matrix(1,0,0,-1,0,1674.5)"/>
 <path style="fill:none;stroke-width:0.5;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(0%,0%,0%);stroke-opacity:1;stroke-miterlimit:10;" d="M 0 0 L 1404 0 " transform="matrix(1,0,0,-1,0,1753.5)"/>
 <g id="coach-tap-spot" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round">
-<circle cx="1342" cy="64" r="52" stroke="#464646" stroke-width="2" stroke-dasharray="2 5"/>
-<ellipse cx="1342" cy="57" rx="32" ry="25"/>
-<path d="M 1342 32 C 1333 46, 1351 66, 1342 82"/>
-<path d="M 1316 50 q 6 -12 16 -4"/>
-<path d="M 1318 64 q 8 10 14 0"/>
-<path d="M 1352 50 q 6 -12 16 -4"/>
-<path d="M 1352 64 q 8 10 14 0"/>
-<path d="M 1346 80 l 5 12 M 1338 81 l 3 11"/>
-<text x="1342" y="108" font-family="Segoe UI, Noto Sans, sans-serif" font-size="14" font-weight="bold" fill="#464646" stroke="none" text-anchor="middle">tap</text>
+<circle cx="702" cy="64" r="52" stroke="#464646" stroke-width="2" stroke-dasharray="2 5"/>
+<ellipse cx="702" cy="57" rx="32" ry="25"/>
+<path d="M 702 32 C 693 46, 711 66, 702 82"/>
+<path d="M 676 50 q 6 -12 16 -4"/>
+<path d="M 678 64 q 8 10 14 0"/>
+<path d="M 712 50 q 6 -12 16 -4"/>
+<path d="M 712 64 q 8 10 14 0"/>
+<path d="M 706 80 l 5 12 M 698 81 l 3 11"/>
+<text x="702" y="108" font-family="Segoe UI, Noto Sans, sans-serif" font-size="14" font-weight="bold" fill="#464646" stroke="none" text-anchor="middle">tap</text>
 </g></g>
 </svg>

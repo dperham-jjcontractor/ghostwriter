@@ -1,5 +1,8 @@
 param(
-    [string] $Dir = "C:\Users\dperham\source\ghostwriter-builds\templates"
+    [string] $Dir = "C:\Users\dperham\source\ghostwriter-builds\templates",
+    # Icon centre in native pixels (1404 x 1872). Top centre matches trigger_corner = "TC".
+    [int] $CenterX = 702,
+    [int] $CenterY = 62
 )
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing
@@ -9,8 +12,8 @@ $outPng = Join-Path $Dir "P Lines medium coach.png"
 $inSvg  = Join-Path $Dir "tpl_lines_medium.svg"
 $outSvg = Join-Path $Dir "P Lines medium coach.svg"
 
-# Icon centre: inside the top-right tap zone (68 virtual px = 124 native px square).
-$cx = 1342; $cy = 62
+# Icon centre: inside the tap zone (top centre zone is 160 x 68 virtual px = 292 x 124 native px).
+$cx = $CenterX; $cy = $CenterY
 
 # ---- PNG ----
 $src = [System.Drawing.Image]::FromFile($inPng)

@@ -21,12 +21,17 @@ pub enum PenTool {
     Unknown,
 }
 
+/// Where a finger tap starts a run. The four corners collide with the
+/// tablet's own controls (close button top-right, toolbar top-left, writing
+/// hand at the bottom), so the top and bottom centre zones exist as well.
 #[derive(Debug, Clone, Copy)]
 pub enum TriggerCorner {
     UpperRight,
     UpperLeft,
     LowerRight,
     LowerLeft,
+    TopCenter,
+    BottomCenter,
 }
 
 impl TriggerCorner {
@@ -36,8 +41,10 @@ impl TriggerCorner {
             "ul" | "upper-left" => Ok(TriggerCorner::UpperLeft),
             "lr" | "lower-right" => Ok(TriggerCorner::LowerRight),
             "ll" | "lower-left" => Ok(TriggerCorner::LowerLeft),
+            "tc" | "top-center" | "top-centre" | "top" => Ok(TriggerCorner::TopCenter),
+            "bc" | "bottom-center" | "bottom-centre" | "bottom" => Ok(TriggerCorner::BottomCenter),
             _ => Err(anyhow::anyhow!(
-                "Invalid trigger corner: {}. Use UR, UL, LR, LL, upper-right, upper-left, lower-right, or lower-left",
+                "Invalid trigger zone: {}. Use TC (top-center), BC (bottom-center), UR, UL, LR or LL",
                 s
             )),
         }
@@ -550,13 +557,17 @@ impl Touch {
     }
 
     fn is_in_trigger_zone(x: i32, y: i32, trigger_corner: TriggerCorner) -> bool {
-        const CORNER_SIZE: i32 = 68; // Size of the trigger zone (68x68 pixels)
+        const CORNER_SIZE: i32 = 68; // Size of the corner trigger zones (68x68 pixels)
+        const CENTER_HALF_WIDTH: i32 = 80; // Centre zones are 160 px wide and CORNER_SIZE tall
+        let near_center = (x - VIRTUAL_WIDTH as i32 / 2).abs() < CENTER_HALF_WIDTH;
 
         match trigger_corner {
             TriggerCorner::UpperRight => x > VIRTUAL_WIDTH as i32 - CORNER_SIZE && y < CORNER_SIZE,
             TriggerCorner::UpperLeft => x < CORNER_SIZE && y < CORNER_SIZE,
             TriggerCorner::LowerRight => x > VIRTUAL_WIDTH as i32 - CORNER_SIZE && y > VIRTUAL_HEIGHT as i32 - CORNER_SIZE,
             TriggerCorner::LowerLeft => x < CORNER_SIZE && y > VIRTUAL_HEIGHT as i32 - CORNER_SIZE,
+            TriggerCorner::TopCenter => near_center && y < CORNER_SIZE,
+            TriggerCorner::BottomCenter => near_center && y > VIRTUAL_HEIGHT as i32 - CORNER_SIZE,
         }
     }
 

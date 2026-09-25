@@ -155,7 +155,7 @@ pub struct Args {
     #[serde(skip_serializing_if = "Option::is_none")]
     log_level: Option<String>,
 
-    /// Sets which corner the touch trigger listens to (UR, UL, LR, LL, upper-right, upper-left, lower-right, lower-left; default: UR)
+    /// Sets where a finger tap starts a run: TC (top-center, default), BC (bottom-center), UR, UL, LR or LL
     #[arg(long)]
     #[serde(skip_serializing_if = "Option::is_none")]
     trigger_corner: Option<String>,
@@ -432,7 +432,7 @@ async fn run_ghostwriter_loop(
 
     // Silent start: nothing is typed or tapped at boot or when the loop restarts
     // after a config change, because whatever is open on the tablet would receive it.
-    info!("Ghostwriter ready; tap the {} corner to start a run", config.trigger_corner);
+    info!("Ghostwriter ready; tap the {} zone to start a run", config.trigger_corner);
 
     // Initialize engine
     let mut engine_options = OptionMap::new();

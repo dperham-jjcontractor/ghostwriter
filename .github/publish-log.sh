@@ -6,7 +6,9 @@
 set -u
 log="$1"; title="$2"; status="$3"
 
-grep -v -E '^\s*(Compiling|Checking|Downloaded|Downloading|Updating|Locking|Adding|Finished|Running|Blocking|Fresh|Documenting|Installing|Installed|Unpacking|Removing)' "$log" > filtered.txt || true
+# Strip ANSI colour codes first so the filters below see plain text.
+sed 's/\[[0-9;]*[A-Za-z]//g' "$log" > plain.txt
+grep -v -E '^\s*(Compiling|Checking|Downloaded|Downloading|Updating|Locking|Adding|Finished|Running|Blocking|Fresh|Documenting|Installing|Installed|Unpacking|Removing)' plain.txt > filtered.txt || true
 
 encode() { sed 's/%/%25/g' "$1" | tr -d '\r' | sed ':a;N;$!ba;s/\n/%0A/g'; }
 

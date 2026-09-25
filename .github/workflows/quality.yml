@@ -7,6 +7,9 @@ on:
 
 # Each job turns its output into annotations and a step summary (see
 # .github/publish-log.sh) so failures can be read without signing in.
+env:
+  CARGO_TERM_COLOR: never
+
 jobs:
   format:
     name: Check Formatting

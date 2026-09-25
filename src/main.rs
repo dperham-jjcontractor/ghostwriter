@@ -452,6 +452,9 @@ async fn run_ghostwriter_loop(
     if !config.openai_reasoning_effort.trim().is_empty() {
         engine_options.insert("reasoning_effort".to_string(), config.openai_reasoning_effort.trim().to_string());
     }
+    if config.drawing_check && !config.no_svg {
+        engine_options.insert("drawing_check".to_string(), "true".to_string());
+    }
     if config.thinking {
         engine_options.insert("thinking".to_string(), "true".to_string());
         engine_options.insert("thinking_tokens".to_string(), config.thinking_tokens.to_string());

@@ -16,6 +16,7 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(90);
 /// still reconnecting after sleep.
 const RETRY_ATTEMPTS: u32 = 2;
 const RETRY_PAUSE: Duration = Duration::from_secs(3);
+const DRAWING_CHECK_QUESTION: &str = "Look at this notebook page. Does the newest handwriting or typed text on it ask for a drawing, picture, sketch, diagram, table, plan or layout (for example: draw me a smiley face, sketch this, show me a layout, make a table)? Ignore a request that already has a drawing or a typed reply below it. Answer with exactly one word: yes or no.";
 
 pub struct OpenAI {
     model: String,
@@ -24,6 +25,9 @@ pub struct OpenAI {
     /// Sent as reasoning_effort when non-empty. gpt-6 models reject function
     /// tools on chat completions unless this is "none".
     reasoning_effort: String,
+    /// Ask the model first whether the page requests a drawing and, if so,
+    /// require the draw_svg tool. At zero reasoning the model otherwise types.
+    drawing_check: bool,
     tools: Vec<Tool>,
     content: Vec<json>,
     client: reqwest::Client,
@@ -88,6 +92,29 @@ impl OpenAI {
         Ok(serde_json::from_str(&text)?)
     }
 
+    /// A cheap yes/no call: does the page ask for a picture? Sends only the
+    /// image and one question, so it costs a fraction of the main request.
+    async fn page_asks_for_drawing(&self, cancellation: &GhostwriterCancellation) -> Result<bool> {
+        let mut content: Vec<json> = self.content.iter().filter(|item| item["type"] == "image_url").cloned().collect();
+        content.push(json!({
+            "type": "text",
+            "text": DRAWING_CHECK_QUESTION,
+        }));
+        let mut body = json!({
+            "model": self.model,
+            "messages": [{ "role": "user", "content": content }],
+            "max_completion_tokens": 8,
+        });
+        if !self.reasoning_effort.is_empty() {
+            body["reasoning_effort"] = json!(self.reasoning_effort);
+        }
+        let request = Self::send_once(&self.client, &self.base_url, &self.api_key, &body);
+        let response = with_cancellation(request, cancellation).await?;
+        let answer = response["choices"][0]["message"]["content"].as_str().unwrap_or("").trim().to_ascii_lowercase();
+        debug!("Drawing check answered: {:?}", answer);
+        Ok(answer.starts_with('y'))
+    }
+
     fn call_tool(&mut self, name: &str, input: json, status_callback: &mut Option<StatusCallback>) -> Result<()> {
         status_update!(*status_callback, super::ModelExecutionStatus::CallingTools);
 
@@ -116,6 +143,7 @@ impl LLMEngine for OpenAI {
         let base_url = option_or_env_fallback(options, "base_url", "OPENAI_BASE_URL", "https://api.openai.com");
         let model = options.get("model").cloned().unwrap_or_else(|| crate::config::DEFAULT_MODEL.to_string());
         let reasoning_effort = options.get("reasoning_effort").cloned().unwrap_or_default();
+        let drawing_check = options.get("drawing_check").map(|v| v == "true").unwrap_or(false);
         let client = reqwest::Client::builder()
             .connect_timeout(CONNECT_TIMEOUT)
             .timeout(REQUEST_TIMEOUT)
@@ -130,6 +158,7 @@ impl LLMEngine for OpenAI {
             base_url,
             api_key,
             reasoning_effort,
+            drawing_check,
             tools: Vec::new(),
             content: Vec::new(),
             client,
@@ -169,6 +198,19 @@ impl LLMEngine for OpenAI {
             anyhow::bail!("No API key configured: set OPENAI_API_KEY (for example in /home/root/ghostwriter/.env) or engine_api_key in ~/.ghostwriter.toml");
         }
 
+        // Decide whether to require the drawing tool before the main request.
+        let mut tool_choice = json!("required");
+        if self.drawing_check && self.tools.iter().any(|tool| tool.name == "draw_svg") {
+            match self.page_asks_for_drawing(cancellation).await {
+                Ok(true) => {
+                    info!("The page asks for a drawing; requiring draw_svg");
+                    tool_choice = json!({ "type": "function", "function": { "name": "draw_svg" } });
+                }
+                Ok(false) => {}
+                Err(e) => warn!("Drawing check failed ({}); leaving the tool choice to the model", e),
+            }
+        }
+
         let mut body = json!({
             "model": self.model,
             "messages": [{
@@ -176,7 +218,7 @@ impl LLMEngine for OpenAI {
                 "content": self.content
             }],
             "tools": self.tools.iter().map(Self::tool_definition_json).collect::<Vec<_>>(),
-            "tool_choice": "required",
+            "tool_choice": tool_choice,
             "parallel_tool_calls": false,
             "max_completion_tokens": MAX_COMPLETION_TOKENS,
         });

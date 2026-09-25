@@ -52,6 +52,9 @@ pub struct Config {
     /// verified on the Paper Pro only; off by default so nothing random is
     /// tapped on other models; drawings then use whichever pen is selected).
     pub select_pen_before_drawing: bool,
+    /// Ask the model first whether the page requests a picture and, if so,
+    /// require the drawing tool (one small extra call per tap).
+    pub drawing_check: bool,
     /// Keep a short, self-maintained memory about the note-taker
     /// (/home/root/ghostwriter/memory.txt) and add it to every prompt.
     pub memory_enabled: bool,
@@ -102,6 +105,7 @@ impl Default for Config {
             openai_reasoning_effort: "none".to_string(),
             reply_on_new_page: true,
             select_pen_before_drawing: false,
+            drawing_check: true,
             memory_enabled: true,
             memory_model: String::new(),
             memory_max_chars: 1500,

@@ -1,6 +1,6 @@
 {
   "name": "draw_text",
-  "description": "Type your whole reply onto the page, below the handwritten notes, using a slow virtual keyboard (about 100 characters per second). Plain ASCII text only; use line breaks for structure.",
+  "description": "Type a text reply onto the page below the handwritten notes using a slow virtual keyboard (about 100 characters per second). Plain ASCII text only; use line breaks for structure. Do NOT use this tool when the page asks for a drawing, picture, sketch, diagram, table, plan or layout: those requests must be answered with the draw_svg tool, never with typed text, a text smiley or a description.",
   "internal_command": "draw_text",
   "parameters": {
     "type": "object",

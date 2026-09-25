@@ -1,6 +1,6 @@
 {
   "name": "draw_svg",
-  "description": "Draw a picture on the page with the pen. Give a complete SVG for a 768x1024 page. The device is black-and-white e-ink and the pen draws lines, so use simple line art: fill=\"none\" stroke=\"black\" stroke-width=\"3\" on every shape, no gradients, no transparency, no shadows, no style tags. Text inside the drawing must use font-family=\"Noto Sans\", fill=\"black\", font-size 28 or larger. Drawing takes time, so keep it to a few dozen shapes. Include xmlns=\"http://www.w3.org/2000/svg\" on the svg tag.",
+  "description": "Draw a picture on the page with the pen. Use this tool, and only this tool, whenever the page asks for a drawing, picture, sketch, diagram, table, plan or layout (draw me a..., sketch this, show me a layout, can you draw, make a table). Give a complete SVG for a 768 by 1024 page. The device is black-and-white e-ink and the pen draws lines, so use simple line art: fill='none' stroke='black' stroke-width='3' on every shape, no gradients, no transparency, no shadows, no style tags. Text inside the drawing must use font-family='Noto Sans', fill='black', font-size 28 or larger. Drawing takes time, so keep it to a few dozen shapes. Include xmlns='http://www.w3.org/2000/svg' on the svg tag.",
   "internal_command": "draw_svg",
   "parameters": {
     "type": "object",

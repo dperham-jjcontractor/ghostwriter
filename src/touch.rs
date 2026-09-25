@@ -343,14 +343,20 @@ impl Touch {
     /// a new page when already on the last one. Used to keep typed replies off
     /// the page the user is writing on.
     pub async fn swipe_to_next_page(&mut self) -> Result<()> {
-        let (x_start, x_end, y) = (700, 100, 512);
+        self.swipe_horizontal(700, 100, 512, 30, 15).await
+    }
+
+    /// Drag one finger horizontally from x_start to x_end at height y, in
+    /// `steps` moves `step_ms` apart (a real page-turn swipe takes ~0.5 s).
+    pub async fn swipe_horizontal(&mut self, x_start: i32, x_end: i32, y: i32, steps: i32, step_ms: u64) -> Result<()> {
         self.touch_start((x_start, y)).await?;
-        let steps = 20;
+        sleep(Duration::from_millis(40)).await;
         for i in 1..=steps {
             let x = x_start + (x_end - x_start) * i / steps;
             self.goto_xy((x, y)).await?;
-            sleep(Duration::from_millis(10)).await;
+            sleep(Duration::from_millis(step_ms)).await;
         }
+        sleep(Duration::from_millis(40)).await;
         self.touch_stop().await?;
         Ok(())
     }

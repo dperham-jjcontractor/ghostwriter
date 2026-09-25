@@ -50,6 +50,7 @@ jobs:
       - name: Package
         run: |
           cp target/armv7-unknown-linux-gnueabihf/release/ghostwriter ghostwriter-rm2
+          cp target/armv7-unknown-linux-gnueabihf/release/experiment ghostwriter-experiment-rm2
           sha256sum ghostwriter-rm2 | tee ghostwriter-rm2.sha256
       - name: Upload artifact (every push)
         uses: actions/upload-artifact@v4
@@ -58,6 +59,7 @@ jobs:
           path: |
             ghostwriter-rm2
             ghostwriter-rm2.sha256
+            ghostwriter-experiment-rm2
           if-no-files-found: error
           retention-days: 30
       - name: Release (tags only)
@@ -67,6 +69,7 @@ jobs:
           files: |
             ghostwriter-rm2
             ghostwriter-rm2.sha256
+            ghostwriter-experiment-rm2
 
 # Owner flow: GitHub > Actions > latest green run > Artifacts > ghostwriter-rm2 (zip) > unzip > .\deploy.ps1 -Binary .\ghostwriter-rm2
 # The zip loses the exec bit; install.sh chmods it.

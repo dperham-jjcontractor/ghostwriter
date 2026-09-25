@@ -6,6 +6,11 @@ use std::{thread, time};
 
 use evdev::{uinput::VirtualDevice, AttributeSet, EventType as EvdevEventType, InputEvent, KeyCode as EvdevKey};
 
+/// Delay after each typed character; the text editor loses keys when pushed faster.
+const KEY_PAUSE_MS: u64 = 14;
+/// Delay after Enter, which triggers a paragraph re-layout.
+const NEWLINE_PAUSE_MS: u64 = 180;
+
 pub struct Keyboard {
     device: Option<VirtualDevice>,
     key_map: HashMap<char, (EvdevKey, bool)>,
@@ -326,7 +331,10 @@ impl Keyboard {
 
                     // Sync event
                     device.emit(&[InputEvent::new(EvdevEventType::SYNCHRONIZATION.0, 0, 0)])?;
-                    thread::sleep(time::Duration::from_millis(10));
+                    // The tablet's text editor drops keystrokes while it lays out a
+                    // new paragraph, so give it longer after Enter than after a letter.
+                    let pause = if c == '\n' { NEWLINE_PAUSE_MS } else { KEY_PAUSE_MS };
+                    thread::sleep(time::Duration::from_millis(pause));
                 } else {
                     debug!("Skipping character with no key mapping: {:?}", c);
                 }

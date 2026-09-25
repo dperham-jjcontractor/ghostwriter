@@ -52,6 +52,13 @@ pub struct Config {
     /// verified on the Paper Pro only; off by default so nothing random is
     /// tapped on other models; drawings then use whichever pen is selected).
     pub select_pen_before_drawing: bool,
+    /// Keep a short, self-maintained memory about the note-taker
+    /// (/home/root/ghostwriter/memory.txt) and add it to every prompt.
+    pub memory_enabled: bool,
+    /// Model for the memory update call; empty means the same as `model`.
+    pub memory_model: String,
+    /// Size cap for the memory text.
+    pub memory_max_chars: usize,
     // Simulation/test mode options
     pub test_mode: Option<String>,
     pub test_device_model: Option<DeviceModel>,
@@ -95,6 +102,9 @@ impl Default for Config {
             openai_reasoning_effort: "none".to_string(),
             reply_on_new_page: true,
             select_pen_before_drawing: false,
+            memory_enabled: true,
+            memory_model: String::new(),
+            memory_max_chars: 1500,
             // Simulation/test mode defaults
             test_mode: None,
             test_device_model: None,

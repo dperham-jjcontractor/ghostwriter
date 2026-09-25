@@ -29,6 +29,14 @@ openai_reasoning_effort = "none"
 # reply is typed on the same page, which can land on top of handwriting.
 reply_on_new_page = true
 
+# Memory: after each reply the coach updates a short file of what it has learned about her
+# (/home/root/ghostwriter/memory.txt) and uses it on every later page. One extra API call
+# per tap. See deploy\show-memory.ps1 to read, edit or reset it.
+memory_enabled = true
+# Model for that update; empty = the same as "model". Cap on the memory size in characters.
+memory_model = ""
+memory_max_chars = 1500
+
 # Drawing. false lets the coach draw pictures with the pen when asked (they go on the
 # reply page, never on the notes). true makes it type only.
 no_svg = false

@@ -86,6 +86,17 @@ The next tap uses the new text; no rebuild, no restart. `deploy.ps1` sends the s
 
 To try the cheaper model, set `model = "gpt-6-luna"` in `/home/root/.ghostwriter.toml` and restart the service.
 
+## What it learns over time
+
+After each reply the coach rewrites a short memory file, `/home/root/ghostwriter/memory.txt`, with durable facts from her pages: her duties, her manager's and coworkers' first names as she writes them, store terms, how she likes replies, projects she keeps coming back to, and anything she wrote "remember ..." about. Every later page gets that memory in its prompt. The file is replaced each time and capped at 1,500 characters, so it consolidates rather than grows; every version is also appended to `memory-log.txt`.
+
+```powershell
+.\deploy\show-memory.ps1 -Tablet 192.168.199.110          # read it
+.\deploy\show-memory.ps1 -Tablet 192.168.199.110 -Reset   # forget everything
+```
+
+Glance at it after her first week. If it has picked up something wrong, edit the file (the script's help shows how) or reset it. Customer details are excluded by rule. It costs one extra API call per tap; set `memory_enabled = false` in the settings file to turn it off.
+
 ## After any tablet software update
 
 Run `deploy.ps1` again (the service is gone), then the capture check. Nothing else is lost: the key, settings and prompt live in `/home/root`.

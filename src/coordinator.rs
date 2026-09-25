@@ -10,6 +10,7 @@ use crate::config::Config;
 use crate::embedded_assets::load_config;
 use crate::keyboard::Keyboard;
 use crate::llm_engine::{LLMEngine, ModelExecutionStatus};
+use crate::memory::{MemoryUpdater, MEMORY_DIR};
 use crate::messages;
 use crate::screenshot::Screenshot;
 use crate::segmenter::ImageAnalyzer;
@@ -297,8 +298,10 @@ pub async fn processing_task(
     progress_tx: watch::Sender<ProgressState>,
     cancellation: Arc<GhostwriterCancellation>,
     tap_touch: Arc<TokioMutex<Touch>>,
+    last_reply: Arc<Mutex<Option<String>>>,
+    memory: Option<Arc<MemoryUpdater>>,
 ) -> Result<()> {
-    let result = processing_inner(&config, engine, &progress_tx, &cancellation, tap_touch).await;
+    let result = processing_inner(&config, engine, &progress_tx, &cancellation, tap_touch, last_reply, memory).await;
 
     if let Err(e) = &result {
         let error_msg = e.to_string();
@@ -362,8 +365,13 @@ async fn processing_inner(
     progress_tx: &watch::Sender<ProgressState>,
     cancellation: &GhostwriterCancellation,
     tap_touch: Arc<TokioMutex<Touch>>,
+    last_reply: Arc<Mutex<Option<String>>>,
+    memory: Option<Arc<MemoryUpdater>>,
 ) -> Result<()> {
     info!("Processing task: starting");
+    if let Ok(mut reply) = last_reply.lock() {
+        *reply = None;
+    }
 
     // Update progress: taking screenshot
     info!("Setting ProgressState::TakingScreenshot");
@@ -455,6 +463,14 @@ async fn processing_inner(
     };
     let mut prompt = prompt_json["prompt"].as_str().unwrap_or("").to_string();
 
+    // Add what the coach has learned about her so far
+    if memory.is_some() {
+        let learned = MemoryUpdater::load(std::path::Path::new(MEMORY_DIR));
+        if !learned.is_empty() {
+            prompt.push_str(&MemoryUpdater::prompt_section(&learned));
+        }
+    }
+
     // Add segmentation to prompt if available
     if let Some(seg_desc) = segmentation_description {
         prompt.push_str("\n\nImage Analysis:\n");
@@ -479,6 +495,21 @@ async fn processing_inner(
     // Execute LLM; errors are reported on the page by processing_task
     info!("Processing task: calling LLM");
     engine_guard.execute(cancellation, status_callback).await?;
+
+    // Learn from this page in the background so she never waits for it
+    if let Some(memory) = memory {
+        let reply = last_reply.lock().ok().and_then(|r| r.clone()).unwrap_or_default();
+        if MemoryUpdater::should_skip(&reply) {
+            info!("memory: nothing to learn from this reply");
+        } else {
+            let page = base64_image.clone();
+            tokio::spawn(async move {
+                if let Err(e) = memory.update(&page, &reply).await {
+                    log::warn!("memory: update failed: {}", e);
+                }
+            });
+        }
+    }
 
     // Write model output if configured
     if let Some(model_output_file) = &config.model_output_file {

@@ -17,6 +17,7 @@ use ghostwriter::{
     embedded_assets::load_config,
     keyboard::Keyboard,
     llm_engine::{anthropic::Anthropic, google::Google, openai::OpenAI, LLMEngine},
+    memory::MemoryUpdater,
     pen::Pen,
     simulation::SimulationConfig,
     status::GhostwriterStatus,
@@ -458,8 +459,16 @@ async fn run_ghostwriter_loop(
 
     let mut engine = create_engine(&engine_name, &engine_options)?;
 
-    // Register tools
-    register_tools(&mut engine, Arc::clone(&keyboard), Arc::clone(&pen), Arc::clone(&touch), &config)?;
+    // The memory updater runs a plain-text call after each reply (OpenAI only for now)
+    let memory = if config.memory_enabled && engine_name == "openai" {
+        Some(Arc::new(MemoryUpdater::new(&config, &engine_options)))
+    } else {
+        None
+    };
+
+    // Register tools; the last reply is captured so the memory updater can learn from it
+    let last_reply: Arc<Mutex<Option<String>>> = shared!(None);
+    register_tools(&mut engine, Arc::clone(&keyboard), Arc::clone(&pen), Arc::clone(&touch), Arc::clone(&last_reply), &config)?;
 
     let engine = Arc::new(TokioMutex::new(engine));
 
@@ -516,6 +525,8 @@ async fn run_ghostwriter_loop(
                     let progress_tx_clone = progress_tx.clone();
                     let cancellation_clone = Arc::clone(&cancellation);
                     let tap_touch_clone = Arc::clone(&tap_touch);
+                    let last_reply_clone = Arc::clone(&last_reply);
+                    let memory_clone = memory.clone();
                     tokio::spawn(async move {
                         coordinator::processing_task(
                             config_clone,
@@ -523,6 +534,8 @@ async fn run_ghostwriter_loop(
                             progress_tx_clone,
                             cancellation_clone,
                             tap_touch_clone,
+                            last_reply_clone,
+                            memory_clone,
                         ).await
                     })
                 };
@@ -612,6 +625,7 @@ fn register_tools(
     keyboard: Arc<Mutex<Keyboard>>,
     pen: Arc<Mutex<Pen>>,
     _touch: Arc<TokioRwLock<Touch>>,
+    last_reply: Arc<Mutex<Option<String>>>,
     config: &Config,
 ) -> Result<()> {
     use serde_json::Value as json;
@@ -620,6 +634,7 @@ fn register_tools(
     let output_file = config.output_file.clone();
     let no_draw = config.no_draw;
     let keyboard_clone = Arc::clone(&keyboard);
+    let last_reply_text = Arc::clone(&last_reply);
 
     let tool_config_draw_text = load_config("tool_draw_text.json")?;
     engine.register_tool(
@@ -633,6 +648,9 @@ fn register_tools(
                     return;
                 }
             };
+            if let Ok(mut reply) = last_reply_text.lock() {
+                *reply = Some(text.to_string());
+            }
             if let Some(output_file) = &output_file {
                 if let Err(e) = std::fs::write(output_file, text) {
                     log::error!("Failed to write output file: {}", e);
@@ -655,6 +673,7 @@ fn register_tools(
         let pen_clone = Arc::clone(&pen);
         let test_mode = config.is_test_mode();
         let select_pen = config.select_pen_before_drawing;
+        let last_reply_svg = Arc::clone(&last_reply);
 
         let tool_config_draw_svg = load_config("tool_draw_svg.json")?;
         engine.register_tool(
@@ -668,6 +687,10 @@ fn register_tools(
                         return;
                     }
                 };
+                if let Ok(mut reply) = last_reply_svg.lock() {
+                    let description = arguments["description"].as_str().unwrap_or("a drawing");
+                    *reply = Some(format!("[drew a picture: {}]", description));
+                }
                 if let Some(output_file) = &output_file {
                     if let Err(e) = std::fs::write(output_file, svg_data) {
                         log::error!("Failed to write output file: {}", e);

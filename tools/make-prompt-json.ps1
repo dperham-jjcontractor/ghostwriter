@@ -44,6 +44,11 @@ function Write-PromptJson([string] $text, [string] $path) {
 $coach = (Get-Content -Raw -Encoding UTF8 $Source).TrimEnd()
 Write-PromptJson $coach $Target
 
+# The memory updater's instructions (generic; bundled into the binary, overridable on the tablet).
+if (Test-Path "prompts/memory.txt") {
+    Write-PromptJson ((Get-Content -Raw -Encoding UTF8 "prompts/memory.txt").TrimEnd()) "prompts/memory.json"
+}
+
 if (Test-Path $Context) {
     $store = (Get-Content -Raw -Encoding UTF8 $Context).TrimEnd()
     Write-PromptJson ($coach + "`n`n" + $store) $LocalTarget

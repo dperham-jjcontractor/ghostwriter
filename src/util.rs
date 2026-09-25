@@ -22,16 +22,8 @@ pub fn svg_to_bitmap(svg_data: &str, width: u32, height: u32) -> Result<Vec<Vec<
 
     opt.fontdb = Arc::new(fontdb);
 
-    let tree = match Tree::from_str(svg_data, &opt) {
-        Ok(tree) => tree,
-        Err(e) => {
-            info!("Error parsing SVG: {}. Using fallback SVG.", e);
-            let fallback_svg = format!(
-                r#"<svg width='{width}' height='{height}' xmlns='http://www.w3.org/2000/svg'><text x='100' y='900' font-family='Noto Sans' font-size='24'>ERROR!</text></svg>"#
-            );
-            Tree::from_str(&fallback_svg, &opt)?
-        }
-    };
+    // A broken SVG is an error, never something drawn on the user's page.
+    let tree = Tree::from_str(svg_data, &opt).map_err(|e| anyhow::anyhow!("SVG parse error: {}", e))?;
 
     let mut pixmap = Pixmap::new(width, height).unwrap();
     // Scale transform so the SVG fills the requested bitmap size (not just its intrinsic size)
@@ -57,16 +49,8 @@ pub fn svg_to_bitmap_threshold(svg_data: &str, width: u32, height: u32, threshol
     fontdb.load_system_fonts();
     opt.fontdb = Arc::new(fontdb);
 
-    let tree = match Tree::from_str(svg_data, &opt) {
-        Ok(tree) => tree,
-        Err(e) => {
-            info!("Error parsing SVG: {}. Using fallback SVG.", e);
-            let fallback_svg = format!(
-                r#"<svg width='{width}' height='{height}' xmlns='http://www.w3.org/2000/svg'><text x='100' y='900' font-family='Noto Sans' font-size='24'>ERROR!</text></svg>"#
-            );
-            Tree::from_str(&fallback_svg, &opt)?
-        }
-    };
+    // A broken SVG is an error, never something drawn on the user's page.
+    let tree = Tree::from_str(svg_data, &opt).map_err(|e| anyhow::anyhow!("SVG parse error: {}", e))?;
 
     let mut pixmap = Pixmap::new(width, height).unwrap();
     let svg_size = tree.size();
@@ -91,16 +75,8 @@ pub fn svg_to_alpha_bitmap(svg_data: &str, width: u32, height: u32) -> Result<Ve
     fontdb.load_system_fonts();
     opt.fontdb = Arc::new(fontdb);
 
-    let tree = match Tree::from_str(svg_data, &opt) {
-        Ok(tree) => tree,
-        Err(e) => {
-            info!("Error parsing SVG: {}. Using fallback SVG.", e);
-            let fallback_svg = format!(
-                r#"<svg width='{width}' height='{height}' xmlns='http://www.w3.org/2000/svg'><text x='100' y='900' font-family='Noto Sans' font-size='24'>ERROR!</text></svg>"#
-            );
-            Tree::from_str(&fallback_svg, &opt)?
-        }
-    };
+    // A broken SVG is an error, never something drawn on the user's page.
+    let tree = Tree::from_str(svg_data, &opt).map_err(|e| anyhow::anyhow!("SVG parse error: {}", e))?;
 
     let mut pixmap = Pixmap::new(width, height).unwrap();
     let svg_size = tree.size();
@@ -134,12 +110,23 @@ pub fn write_bitmap_to_file(bitmap: &[Vec<bool>], filename: &str) -> Result<()> 
     Ok(())
 }
 
+/// Read a setting from the options map, then from the environment.
+///
+/// Returns an empty string when neither is set, so a missing API key is
+/// reported at request time (and shown on the page) instead of crashing at
+/// startup, which under a service manager would become a restart loop.
 pub fn option_or_env(options: &OptionMap, key: &str, env_key: &str) -> String {
-    let option = options.get(key);
-    if let Some(value) = option {
-        value.to_string()
-    } else {
-        std::env::var(env_key).unwrap().to_string()
+    if let Some(value) = options.get(key) {
+        if !value.trim().is_empty() {
+            return value.to_string();
+        }
+    }
+    match std::env::var(env_key) {
+        Ok(value) if !value.trim().is_empty() => value,
+        _ => {
+            log::warn!("No value for '{}' in the config and {} is not set", key, env_key);
+            String::new()
+        }
     }
 }
 

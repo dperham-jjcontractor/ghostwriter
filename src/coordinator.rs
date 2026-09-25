@@ -10,6 +10,7 @@ use crate::config::Config;
 use crate::embedded_assets::load_config;
 use crate::keyboard::Keyboard;
 use crate::llm_engine::{LLMEngine, ModelExecutionStatus};
+use crate::messages;
 use crate::screenshot::Screenshot;
 use crate::segmenter::ImageAnalyzer;
 use crate::simulation::SimulationConfig;
@@ -36,6 +37,8 @@ pub enum ProgressState {
     TakingScreenshot,
     /// LLM execution state
     LlmState(ModelExecutionStatus),
+    /// A short, self-erasing message for the person at the tablet (see messages.rs)
+    Message(&'static str),
     /// Processing completed successfully
     Done,
 }
@@ -138,9 +141,6 @@ pub async fn trigger_task(
                     break;
                 }
                 debug!("Trigger task: sent trigger event, continuing loop");
-
-                // Give processing_task a moment to acquire the lock before we loop back
-                sleep(Duration::from_millis(50)).await;
             }
             Err(e) => {
                 debug!("Trigger task: wait_for_trigger returned Err: {}", e);
@@ -192,7 +192,9 @@ pub async fn progress_task(
     info!("Progress task starting");
 
     let mut current_state = ProgressState::Idle;
-    let cancel_token = cancellation.execution_token();
+    let mut dots: u32 = 0;
+    // The execution token is replaced every run; the main token is what ends this task.
+    let cancel_token = cancellation.main_token();
 
     loop {
         tokio::select! {
@@ -232,8 +234,9 @@ pub async fn progress_task(
                         }
                         ProgressState::LlmState(ModelExecutionStatus::BuildingContext) => {
                             info!("Progress: Building context...");
+                            dots = 0;
                             if let Ok(mut kb) = keyboard.lock() {
-                                let _ = kb.progress("Thinking");
+                                let _ = kb.progress(messages::WORKING);
                             }
                         }
                         ProgressState::LlmState(ModelExecutionStatus::LlmProcessing) => {
@@ -254,6 +257,13 @@ pub async fn progress_task(
                         ProgressState::LlmState(ModelExecutionStatus::Error(msg)) => {
                             debug!("Progress: Error - {}", msg);
                         }
+                        ProgressState::Message(message) => {
+                            info!("Progress: on-page message: {}", message);
+                            if let Ok(mut kb) = keyboard.lock() {
+                                let _ = kb.progress_end();
+                                let _ = kb.progress(message);
+                            }
+                        }
                         ProgressState::Done => {
                             debug!("Progress: Done");
                         }
@@ -261,11 +271,12 @@ pub async fn progress_task(
                 }
             }
 
-            // Add dots for thinking state
-            _ = sleep(Duration::from_millis(500)) => {
-                if matches!(current_state, ProgressState::LlmState(ModelExecutionStatus::LlmProcessing)) {
+            // Add dots while waiting for the model, up to a limit
+            _ = sleep(Duration::from_millis(messages::DOT_INTERVAL_MS)) => {
+                if matches!(current_state, ProgressState::LlmState(ModelExecutionStatus::LlmProcessing)) && dots < messages::MAX_DOTS {
                     if let Ok(mut kb) = keyboard.lock() {
-                        let _ = kb.progress(".");
+                        let _ = kb.progress(messages::DOT);
+                        dots += 1;
                     }
                 }
             }
@@ -275,13 +286,51 @@ pub async fn progress_task(
     Ok(())
 }
 
-/// Task that processes a trigger: screenshot → LLM → tool execution
+/// Task that processes a trigger: screenshot -> LLM -> tool execution.
+///
+/// Whatever happens inside, the page is left clean: the working indicator is
+/// erased, and a failure shows a short message for a moment before that is
+/// erased too.
 pub async fn processing_task(
     config: Config,
     engine: Arc<TokioMutex<Box<dyn LLMEngine>>>,
     progress_tx: watch::Sender<ProgressState>,
     cancellation: Arc<GhostwriterCancellation>,
-    touch: Arc<tokio::sync::RwLock<Touch>>,
+    tap_touch: Arc<TokioMutex<Touch>>,
+) -> Result<()> {
+    let result = processing_inner(&config, engine, &progress_tx, &cancellation, tap_touch).await;
+
+    if let Err(e) = &result {
+        let error_msg = e.to_string();
+        info!("Processing task: error: {}", error_msg);
+        // A cancelled run (config change or shutdown) is not a failure to report on the page.
+        if !error_msg.contains("cancelled") && !error_msg.contains("canceled") {
+            let _ = progress_tx.send(ProgressState::Message(messages::pick(&error_msg)));
+            sleep(Duration::from_millis(messages::MESSAGE_HOLD_MS)).await;
+        }
+    }
+
+    // Always leave the page clean, whichever path was taken.
+    let _ = progress_tx.send(ProgressState::Idle);
+    result
+}
+
+/// Load a prompt file and check it has the one field the run needs.
+fn load_prompt(name: &str) -> Result<serde_json::Value> {
+    let raw = load_config(name)?;
+    let json = serde_json::from_str::<serde_json::Value>(&raw)?;
+    if json["prompt"].as_str().is_none() {
+        anyhow::bail!("'{}' has no 'prompt' string", name);
+    }
+    Ok(json)
+}
+
+async fn processing_inner(
+    config: &Config,
+    engine: Arc<TokioMutex<Box<dyn LLMEngine>>>,
+    progress_tx: &watch::Sender<ProgressState>,
+    cancellation: &GhostwriterCancellation,
+    tap_touch: Arc<TokioMutex<Touch>>,
 ) -> Result<()> {
     info!("Processing task: starting");
 
@@ -296,7 +345,7 @@ pub async fn processing_task(
         BASE64_STANDARD.encode(std::fs::read(input_png)?)
     } else {
         let mut screenshot = if config.is_test_mode() {
-            let simulation_config = SimulationConfig::from_config(&config);
+            let simulation_config = SimulationConfig::from_config(config);
             Screenshot::new_simulated(simulation_config)?
         } else {
             Screenshot::new()?
@@ -315,8 +364,9 @@ pub async fn processing_task(
         return Ok(());
     }
 
-    // Tap middle bottom to position cursor for text input (before showing "Thinking")
-    if let Err(e) = touch.write().await.tap_middle_bottom().await {
+    // Tap middle bottom to position the text cursor below the notes (before showing "Thinking").
+    // This uses the writer-only handle: the shared Touch is held by the trigger listener.
+    if let Err(e) = tap_touch.lock().await.tap_middle_bottom().await {
         info!("Failed to tap middle bottom: {}", e);
     }
 
@@ -349,13 +399,20 @@ pub async fn processing_task(
         None
     };
 
-    // Load prompt
-    let prompt_general_raw = load_config(&config.prompt);
-    let prompt_general_json = serde_json::from_str::<serde_json::Value>(prompt_general_raw.as_str())?;
-    let mut prompt = prompt_general_json["prompt"]
-        .as_str()
-        .ok_or_else(|| anyhow::anyhow!("Prompt file '{}' missing required 'prompt' field", config.prompt))?
-        .to_string();
+    // Load the prompt, falling back to the built-in default if the configured one is missing or broken
+    let prompt_json = match load_prompt(&config.prompt) {
+        Ok(json) => json,
+        Err(e) => {
+            log::error!(
+                "Could not load prompt '{}': {}. Using the built-in {}",
+                config.prompt,
+                e,
+                crate::config::DEFAULT_PROMPT
+            );
+            load_prompt(crate::config::DEFAULT_PROMPT)?
+        }
+    };
+    let mut prompt = prompt_json["prompt"].as_str().unwrap_or("").to_string();
 
     // Add segmentation to prompt if available
     if let Some(seg_desc) = segmentation_description {
@@ -375,9 +432,9 @@ pub async fn processing_task(
         let _ = progress_tx_clone.send(ProgressState::LlmState(status));
     }) as Box<dyn FnMut(ModelExecutionStatus) + Send>);
 
-    // Execute LLM with proper error handling
+    // Execute LLM; errors are reported on the page by processing_task
     info!("Processing task: calling LLM");
-    let execution_result = engine_guard.execute(&cancellation, status_callback).await;
+    engine_guard.execute(cancellation, status_callback).await?;
 
     // Write model output if configured
     if let Some(model_output_file) = &config.model_output_file {
@@ -386,27 +443,7 @@ pub async fn processing_task(
         // This is a placeholder - the LLMEngine trait would need to expose the raw response
     }
 
-    // Handle execution result
-    match execution_result {
-        Ok(_) => {
-            let _ = progress_tx.send(ProgressState::Done);
-            info!("Processing task: completed successfully");
-            Ok(())
-        }
-        Err(e) => {
-            let error_msg = e.to_string();
-            info!("Processing task: LLM error: {}", error_msg);
-
-            // Only send error state if not already cancelled
-            if !error_msg.contains("cancelled") && !error_msg.contains("canceled") {
-                let _ = progress_tx.send(ProgressState::LlmState(ModelExecutionStatus::Error(error_msg.clone())));
-                // Keep error visible for a moment
-                sleep(Duration::from_secs(2)).await;
-            }
-
-            // Return to idle state
-            let _ = progress_tx.send(ProgressState::Idle);
-            Err(e)
-        }
-    }
+    let _ = progress_tx.send(ProgressState::Done);
+    info!("Processing task: completed successfully");
+    Ok(())
 }

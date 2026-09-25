@@ -7,7 +7,13 @@ use figment::{
 };
 use serde::{Deserialize, Serialize};
 
+/// The one place the default model is spelled out.
+pub const DEFAULT_MODEL: &str = "gpt-6-sol";
+/// The one place the default prompt is spelled out.
+pub const DEFAULT_PROMPT: &str = "coach.json";
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(default)]
 pub struct Config {
     // Direct mapping to CLI args - no arbitrary grouping
     pub engine: Option<String>,
@@ -33,6 +39,8 @@ pub struct Config {
     pub thinking_tokens: u32,
     pub log_level: String,
     pub trigger_corner: String,
+    pub web_server: bool,
+    pub web_port: u16,
     // Simulation/test mode options
     pub test_mode: Option<String>,
     pub test_device_model: Option<DeviceModel>,
@@ -48,11 +56,12 @@ impl Default for Config {
             engine: None,
             engine_base_url: None,
             engine_api_key: None,
-            model: "claude-sonnet-4-0".to_string(),
-            prompt: "general.json".to_string(),
+            model: DEFAULT_MODEL.to_string(),
+            prompt: DEFAULT_PROMPT.to_string(),
             no_submit: false,
             no_draw: false,
-            no_svg: false,
+            // Text only: the assistant types, it never draws on the page.
+            no_svg: true,
             no_keyboard: false,
             no_draw_progress: false,
             input_png: None,
@@ -68,6 +77,8 @@ impl Default for Config {
             thinking_tokens: 5000,
             log_level: "info".to_string(),
             trigger_corner: "UR".to_string(),
+            web_server: false,
+            web_port: 8080,
             // Simulation/test mode defaults
             test_mode: None,
             test_device_model: None,
@@ -80,7 +91,11 @@ impl Default for Config {
 }
 
 impl Config {
-    /// Load configuration using figment (file -> env -> CLI precedence)
+    /// Load configuration using figment (defaults -> TOML file -> env -> CLI precedence).
+    ///
+    /// The CLI layer must only contain values the user actually passed: figment's
+    /// merge lets a serialized `None` or a clap default overwrite a value from the
+    /// TOML file, so `Args` skips unset fields when it serializes.
     pub fn load<T: Serialize>(args: &T) -> Result<Self> {
         let config: Self = Figment::new()
             // Start with built-in defaults
@@ -99,7 +114,8 @@ impl Config {
         Ok(config)
     }
 
-    /// Save current configuration to TOML file
+    /// Save current configuration to the TOML file, readable by the owner only
+    /// because it may hold the API key.
     pub fn save(&self) -> Result<()> {
         let config_path = Self::config_path()?;
 
@@ -107,6 +123,13 @@ impl Config {
         let content = toml::to_string_pretty(self).map_err(|e| anyhow::anyhow!("Failed to serialize config: {}", e))?;
 
         std::fs::write(&config_path, content).map_err(|e| anyhow::anyhow!("Failed to write config file {:?}: {}", config_path, e))?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&config_path, std::fs::Permissions::from_mode(0o600))
+                .map_err(|e| anyhow::anyhow!("Failed to set permissions on {:?}: {}", config_path, e))?;
+        }
 
         Ok(())
     }
@@ -121,12 +144,6 @@ impl Config {
     pub fn validate(&self) -> Result<()> {
         // Validate trigger corner
         TriggerCorner::from_string(&self.trigger_corner)?;
-
-        // Validate log level
-        // match self.log_level.as_str() {
-        //     "error" | "warn" | "info" | "debug" | "trace" => {}
-        //     _ => return Err(anyhow::anyhow!("Invalid log level: {}", self.log_level)),
-        // }
 
         // Validate thinking tokens
         if self.thinking_tokens == 0 {
@@ -144,5 +161,48 @@ impl Config {
     /// Get the test device model, or None if not in test mode
     pub fn get_test_device_model(&self) -> Option<DeviceModel> {
         self.test_device_model
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Config, DEFAULT_MODEL};
+
+    /// Values from ~/.ghostwriter.toml must survive when the CLI passes nothing.
+    /// This is the regression test for settings that silently reverted on restart.
+    #[test]
+    fn toml_values_survive_an_empty_cli_layer() {
+        let dir = std::env::temp_dir().join(format!("ghostwriter-config-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join(".ghostwriter.toml"),
+            "model = \"model-from-toml\"\nengine_api_key = \"key-from-toml\"\nno_svg = false\ntrigger_corner = \"LL\"\n",
+        )
+        .unwrap();
+        std::env::set_var("HOME", &dir);
+
+        let config = Config::load(&serde_json::json!({})).unwrap();
+
+        assert_eq!(config.model, "model-from-toml");
+        assert_eq!(config.engine_api_key.as_deref(), Some("key-from-toml"));
+        assert!(!config.no_svg);
+        assert_eq!(config.trigger_corner, "LL");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn defaults_are_text_only_and_use_the_default_model() {
+        let config = Config::default();
+        assert!(config.no_svg);
+        assert_eq!(config.model, DEFAULT_MODEL);
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn partial_json_from_the_web_ui_still_deserializes() {
+        let config: Config = serde_json::from_str("{\"model\": \"x\"}").unwrap();
+        assert_eq!(config.model, "x");
+        assert_eq!(config.web_port, 8080);
     }
 }

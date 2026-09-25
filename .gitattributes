@@ -1,0 +1,7 @@
+# Everything deployed to the tablet (shell scripts, systemd units, prompts)
+# must be LF: busybox sh and systemd reject CRLF. Rust and CI expect LF too.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.gif binary
+*.ko binary

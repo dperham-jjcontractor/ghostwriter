@@ -109,15 +109,32 @@ impl Screenshot {
         }
     }
 
-    // Memory offset within the post-fb0 mapping where the current framebuffer data starts.
-    // Reference: goMarkableStream internal/remarkable/detect.go
-    fn detect_rm2_pointer_offset() -> u64 {
-        let (major, minor) = Self::detect_rm2_firmware_version();
+    /// Bytes to skip from the start of the mapping that follows /dev/fb0 in
+    /// /proc/<pid>/maps before the framebuffer pixels begin.
+    ///
+    /// Below 3.24 the framebuffer is 16-bit RGB565 stored landscape and starts
+    /// 7 bytes in (the value this code used before commit dd48e60; upstream issue
+    /// #24 shows that +8 misaligns every pixel and yields a black page on 3.15).
+    /// From 3.24 the framebuffer is 32-bit BGRA stored portrait at offset
+    /// 2629632 + 8 (goMarkableStream internal/remarkable/detect.go, verified by
+    /// the upstream maintainer on his own device).
+    pub fn rm2_framebuffer_skip(major: u32, minor: u32) -> u64 {
         if major > 3 || (major == 3 && minor >= 24) {
-            2629632
+            2_629_632 + 8
         } else {
-            0
+            7
         }
+    }
+
+    /// Fraction of pixels darker than mid-gray in a PNG. A value near 1.0 means
+    /// the capture read the wrong memory and the model would see a black page.
+    fn dark_fraction(png: &[u8]) -> Option<f32> {
+        let img = image::load_from_memory(png).ok()?.to_luma8();
+        let total = (img.width() * img.height()) as f32;
+        if total == 0.0 {
+            return None;
+        }
+        Some(img.pixels().filter(|p| p[0] < 128).count() as f32 / total)
     }
 
     pub fn take_screenshot(&mut self) -> Result<()> {
@@ -144,6 +161,14 @@ impl Screenshot {
         // Process the image data (transpose, color correction, etc.)
         debug!("screenshot: processing image");
         let processed_data = self.process_image(screenshot_data)?;
+
+        let dark = Self::dark_fraction(&processed_data).unwrap_or(0.0);
+        if dark > 0.95 {
+            log::warn!(
+                "Capture is {:.0}% dark: the framebuffer offset is probably wrong for this firmware (try GHOSTWRITER_FB_SKIP)",
+                dark * 100.0
+            );
+        }
 
         // Update the data
         if let ScreenshotMode::Real { data, .. } = &mut self.mode {
@@ -189,14 +214,21 @@ impl Screenshot {
                     .output()?;
                 let address_hex = String::from_utf8(output.stdout)?.trim().to_string();
                 let address = u64::from_str_radix(&address_hex, 16)?;
-                let pointer_offset = Self::detect_rm2_pointer_offset();
-                debug!(
-                    "RM2 framebuffer: base={:#x}, pointer_offset={}, total={:#x}",
+                let (major, minor) = Self::detect_rm2_firmware_version();
+                // GHOSTWRITER_FB_SKIP lets another offset be tried on the device without a rebuild.
+                let skip = std::env::var("GHOSTWRITER_FB_SKIP")
+                    .ok()
+                    .and_then(|value| value.parse::<u64>().ok())
+                    .unwrap_or_else(|| Self::rm2_framebuffer_skip(major, minor));
+                info!(
+                    "RM2 framebuffer: firmware {}.{}, base={:#x}, skip={}, total={:#x}",
+                    major,
+                    minor,
                     address,
-                    pointer_offset,
-                    address + pointer_offset + 8
+                    skip,
+                    address + skip
                 );
-                Ok(address + pointer_offset + 8)
+                Ok(address + skip)
             }
         }
     }
@@ -282,7 +314,9 @@ impl Screenshot {
         // Resize the PNG to VIRTUAL_WIDTH x VIRTUAL_HEIGHT
         debug!("Resizing image to {}x{}", VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
         let img = image::load_from_memory(&png_data)?;
-        let resized_img = img.resize_exact(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, image::imageops::FilterType::Nearest);
+        // Lanczos keeps thin pen strokes as gray instead of dropping them, which
+        // nearest-neighbour sampling did at this scale factor.
+        let resized_img = img.resize_exact(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, image::imageops::FilterType::Lanczos3);
 
         // Encode the resized image back to PNG
         debug!("Re-encoding resized image");
@@ -417,5 +451,20 @@ impl Screenshot {
         let img = image::load_from_memory(data).ok()?;
         let pixel = img.get_pixel(vx, vy);
         Some((pixel[0], pixel[1], pixel[2]))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Screenshot;
+
+    #[test]
+    fn framebuffer_skip_follows_the_firmware_layout() {
+        assert_eq!(Screenshot::rm2_framebuffer_skip(3, 7), 7);
+        assert_eq!(Screenshot::rm2_framebuffer_skip(3, 15), 7);
+        assert_eq!(Screenshot::rm2_framebuffer_skip(3, 23), 7);
+        assert_eq!(Screenshot::rm2_framebuffer_skip(3, 24), 2_629_640);
+        assert_eq!(Screenshot::rm2_framebuffer_skip(3, 30), 2_629_640);
+        assert_eq!(Screenshot::rm2_framebuffer_skip(4, 0), 2_629_640);
     }
 }

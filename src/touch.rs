@@ -81,12 +81,7 @@ impl Touch {
         let device_model = DeviceModel::detect();
         info!("Touch using device model: {}", device_model.name());
 
-        let device_path = match device_model {
-            DeviceModel::Remarkable2 => "/dev/input/event2",
-            DeviceModel::RemarkablePaperPro => "/dev/input/event3",
-            DeviceModel::RemarkablePaperPure => "/dev/input/event3",
-            DeviceModel::Unknown => "/dev/input/event2", // Default to RM2
-        };
+        let device_path = Self::device_path(&device_model);
 
         let (input_device, event_stream) = if no_touch {
             (None, None)
@@ -104,6 +99,35 @@ impl Touch {
                 device_model,
             },
             trigger_corner,
+        }
+    }
+
+    /// A handle that only sends synthetic touches and never reads events.
+    ///
+    /// The trigger listener keeps the main `Touch` locked while it waits for the
+    /// corner tap, so anything that has to tap the screen during a run (placing
+    /// the text cursor) must use one of these instead of waiting for that lock.
+    pub fn new_writer(no_touch: bool) -> Self {
+        let device_model = DeviceModel::detect();
+        let device_path = Self::device_path(&device_model);
+        let input_device = if no_touch { None } else { Some(Device::open(device_path).unwrap()) };
+
+        Self {
+            mode: TouchMode::Real {
+                input_device,
+                event_stream: None,
+                device_model,
+            },
+            trigger_corner: TriggerCorner::UpperRight,
+        }
+    }
+
+    fn device_path(device_model: &DeviceModel) -> &'static str {
+        match device_model {
+            DeviceModel::Remarkable2 => "/dev/input/event2",
+            DeviceModel::RemarkablePaperPro => "/dev/input/event3",
+            DeviceModel::RemarkablePaperPure => "/dev/input/event3",
+            DeviceModel::Unknown => "/dev/input/event2", // Default to RM2
         }
     }
 
@@ -143,6 +167,9 @@ impl Touch {
         debug!("wait_for_real_trigger: entered");
         let mut position_x = 0;
         let mut position_y = 0;
+        // Logged on release so a palm-rejection threshold can be chosen from real taps.
+        let mut touch_started: Option<std::time::Instant> = None;
+        let mut max_touch_major = 0;
 
         if let Some(events) = event_stream {
             debug!("wait_for_real_trigger: event stream available, entering wait loop");
@@ -172,9 +199,25 @@ impl Touch {
                                 if event.code() == ABS_MT_POSITION_Y {
                                     position_y = event.value();
                                 }
+                                if event.code() == ABS_MT_TOUCH_MAJOR {
+                                    max_touch_major = max_touch_major.max(event.value());
+                                }
+                                if event.code() == ABS_MT_TRACKING_ID && event.value() >= 0 {
+                                    touch_started = Some(std::time::Instant::now());
+                                    max_touch_major = 0;
+                                }
                                 if event.code() == ABS_MT_TRACKING_ID && event.value() == -1 {
                                     let (x, y) = Self::input_to_virtual((position_x, position_y), device_model);
-                                    debug!("Touch release detected at ({}, {}) normalized ({}, {})", position_x, position_y, x, y);
+                                    let held_ms = touch_started.take().map(|started| started.elapsed().as_millis()).unwrap_or(0);
+                                    debug!(
+                                        "Touch release at ({}, {}) normalized ({}, {}) held {} ms, max touch major {}",
+                                        position_x,
+                                        position_y,
+                                        x,
+                                        y,
+                                        held_ms,
+                                        max_touch_major
+                                    );
                                     if Self::is_in_trigger_zone(x, y, trigger_corner) {
                                         debug!("Touch release in target zone!");
                                         debug!("wait_for_real_trigger: returning Ok()");

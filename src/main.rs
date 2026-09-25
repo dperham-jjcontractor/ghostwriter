@@ -29,139 +29,175 @@ use ghostwriter::{
 const VIRTUAL_WIDTH: u32 = 768;
 const VIRTUAL_HEIGHT: u32 = 1024;
 
+/// Command-line options.
+///
+/// Every field is optional and is only serialized when the user actually passed
+/// it, so the CLI layer never overrides ~/.ghostwriter.toml with a default value
+/// (see Config::load). Defaults live in config.rs.
 #[derive(Parser, Serialize)]
 #[command(author, version)]
-#[command(about = "Vision-LLM Agent for the reMarkable2")]
+#[command(about = "Vision-LLM notes coach for the reMarkable")]
 #[command(
-    long_about = "Ghostwriter is an exploration of how to interact with vision-LLM through the handwritten medium of the reMarkable2. It is a pluggable system; you can provide a custom prompt and custom 'tools' that the agent can use."
+    long_about = "Ghostwriter watches a handwritten page on the reMarkable, sends it to a vision LLM when you tap a corner, and types the reply back onto the page. Settings come from ~/.ghostwriter.toml, GHOSTWRITER_* environment variables, and these flags, in that order of precedence."
 )]
-#[command(after_help = "See https://github.com/awwaiid/ghostwriter for updates!")]
+#[command(after_help = "See https://github.com/dperham-jjcontractor/ghostwriter for this fork and https://github.com/awwaiid/ghostwriter for the original.")]
 pub struct Args {
-    /// Sets the engine to use (openai, anthropic);
+    /// Sets the engine to use (openai, anthropic, google);
     /// Sometimes we can guess the engine from the model name
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     engine: Option<String>,
 
     /// Sets the base URL for the engine API;
     /// Or use environment variable OPENAI_BASE_URL or ANTHROPIC_BASE_URL
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     engine_base_url: Option<String>,
 
     /// Sets the API key for the engine;
     /// Or use environment variable OPENAI_API_KEY or ANTHROPIC_API_KEY
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     engine_api_key: Option<String>,
 
-    /// Sets the model to use
-    #[arg(long, short, default_value = "claude-sonnet-4-6")]
-    model: String,
+    /// Sets the model to use (default: gpt-6-sol)
+    #[arg(long, short)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    model: Option<String>,
 
-    /// Sets the prompt to use
-    #[arg(long, default_value = "general.json")]
-    prompt: String,
+    /// Sets the prompt to use: a bundled name such as coach.json, or a path (default: coach.json)
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    prompt: Option<String>,
 
     /// Do not actually submit to the model, for testing
     #[arg(short, long)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     no_submit: bool,
 
     /// Skip running draw_text or draw_svg, for testing
     #[arg(long)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     no_draw: bool,
 
-    /// Disable SVG drawing tool
+    /// Disable SVG drawing tool (already the default; set no_svg = false in the TOML to enable drawing)
     #[arg(long)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     no_svg: bool,
 
     /// Disable keyboard
     #[arg(long)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     no_keyboard: bool,
 
     /// Disable keyboard progress
     #[arg(long)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     no_draw_progress: bool,
 
     /// Input PNG file for testing
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     input_png: Option<String>,
 
     /// Output file for testing
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     output_file: Option<String>,
 
     /// Output file for model parameters
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     model_output_file: Option<String>,
 
     /// Save screenshot filename
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     save_screenshot: Option<String>,
 
     /// Save bitmap filename
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     save_bitmap: Option<String>,
 
     /// Disable looping
     #[arg(long)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     no_loop: bool,
 
     /// Disable waiting for trigger
     #[arg(long)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     no_trigger: bool,
 
     /// Apply segmentation
     #[arg(long)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     apply_segmentation: bool,
 
     /// Enable web search (for Anthropic models)
     #[arg(long)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     web_search: bool,
 
     /// Enable model thinking (for Anthropic models)
     #[arg(long)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     thinking: bool,
 
-    /// Set the thinking token budget (for Anthropic models)
-    #[arg(long, default_value = "5000")]
-    thinking_tokens: u32,
+    /// Set the thinking token budget (for Anthropic models; default: 5000)
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    thinking_tokens: Option<u32>,
 
-    /// Set the log level. Try 'debug' or 'trace'
-    #[arg(long, default_value = "info")]
-    log_level: String,
+    /// Set the log level: error, warn, info, debug or trace (default: info)
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    log_level: Option<String>,
 
-    /// Sets which corner the touch trigger listens to (UR, UL, LR, LL, upper-right, upper-left, lower-right, lower-left)
-    #[arg(long, default_value = "UR")]
-    trigger_corner: String,
+    /// Sets which corner the touch trigger listens to (UR, UL, LR, LL, upper-right, upper-left, lower-right, lower-left; default: UR)
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    trigger_corner: Option<String>,
 
     /// Save current configuration to ~/.ghostwriter.toml and exit
     #[arg(long)]
+    #[serde(skip)]
     save_config: bool,
 
     /// Start web server for configuration UI
     #[arg(long)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     web_server: bool,
 
     /// Port for web server (default: 8080)
-    #[arg(long, default_value = "8080")]
-    web_port: u16,
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    web_port: Option<u16>,
 
     /// Enable test/simulation mode for specific device (rm2, rmpp)
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     test_mode: Option<String>,
 
     /// File containing scripted touch events for simulation (JSON format)
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     test_touch_events_file: Option<String>,
 
     /// Directory containing test screenshots to cycle through
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     test_screenshot_dir: Option<String>,
 
     /// Auto-trigger delay in seconds for automated testing
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     test_auto_trigger_delay: Option<u32>,
 
     /// File to log simulated interactions to
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     test_interaction_log: Option<String>,
 }
 
@@ -170,14 +206,15 @@ async fn main() -> Result<()> {
     dotenv().ok();
 
     let args = Args::parse();
+    let config = Config::load(&args)?;
 
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(args.log_level.as_str()))
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(config.log_level.as_str()))
         .format_timestamp_millis()
         .init();
 
     setup_uinput()?;
 
-    ghostwriter(&args).await
+    ghostwriter(&args, config).await
 }
 
 macro_rules! shared {
@@ -192,11 +229,16 @@ macro_rules! lock {
     };
 }
 
+/// Longest reply that will be typed; anything past this is cut with an ellipsis.
+const MAX_REPLY_CHARS: usize = 900;
+
 fn draw_text(text: &str, keyboard: &mut Keyboard) -> Result<()> {
     info!("Drawing text to the screen.");
+    let reply = Keyboard::prepare_reply(text, MAX_REPLY_CHARS);
     keyboard.progress_end()?;
     keyboard.key_cmd_body()?;
-    keyboard.string_to_keypresses(text)?;
+    // Start on a fresh line below the notes and leave one after the reply.
+    keyboard.string_to_keypresses(&format!("\n{}\n", reply))?;
     Ok(())
 }
 
@@ -247,9 +289,7 @@ fn create_engine(engine_name: &str, engine_options: &OptionMap) -> Result<Box<dy
     }
 }
 
-async fn ghostwriter(args: &Args) -> Result<()> {
-    let mut config = Config::load(args)?;
-
+async fn ghostwriter(args: &Args, mut config: Config) -> Result<()> {
     // Parse test_mode device model if provided
     if let Some(device_str) = &config.test_mode {
         let device_model = DeviceModel::from_string(device_str)?;
@@ -270,7 +310,7 @@ async fn ghostwriter(args: &Args) -> Result<()> {
 
     // Create Touch component for web API and main loop
     let trigger_corner = TriggerCorner::from_string(&config.trigger_corner)?;
-    let shared_touch = if args.web_server || config.is_test_mode() {
+    let shared_touch = if config.web_server || config.is_test_mode() {
         let touch = if config.is_test_mode() {
             let simulation_config = SimulationConfig::from_config(&config);
             Touch::new_simulated(simulation_config, trigger_corner)?
@@ -291,13 +331,13 @@ async fn ghostwriter(args: &Args) -> Result<()> {
     let shared_config_watch_tx = Arc::new(config_watch_tx);
 
     // Spawn web server in same tokio runtime if requested
-    let web_handle = if args.web_server {
+    let web_handle = if config.web_server {
         let config_clone = Arc::clone(&shared_config);
         let status_clone = Arc::clone(&shared_status);
         let touch_clone = shared_touch.as_ref().map(Arc::clone);
         let cancellation_clone = Arc::clone(&shared_cancellation);
         let config_watch_tx_clone = Arc::clone(&shared_config_watch_tx);
-        let port = args.web_port;
+        let port = config.web_port;
 
         Some(tokio::spawn(async move {
             start_web_server(
@@ -322,7 +362,7 @@ async fn ghostwriter(args: &Args) -> Result<()> {
         let cancellation = Arc::new(GhostwriterCancellation::new());
 
         // Update shared cancellation for web server
-        if args.web_server {
+        if config.web_server {
             let mut shared_cancel = shared_cancellation.write().await;
             *shared_cancel = (*cancellation).clone();
         }
@@ -384,13 +424,13 @@ async fn run_ghostwriter_loop(
         Arc::new(TokioRwLock::new(Touch::new(config.no_draw, trigger_corner)))
     };
 
-    // Give keyboard time to initialize
-    // sleep(Duration::from_millis(1000)).await;
-    touch.write().await.tap_middle_bottom().await?;
-    // sleep(Duration::from_millis(1000)).await;
-    lock!(keyboard).progress("Ghostwriter starting...")?;
-    sleep(Duration::from_millis(1000)).await;
-    lock!(keyboard).progress_end()?;
+    // A handle that only sends synthetic taps (cursor placement) and never waits
+    // on the trigger listener's lock. See Touch::new_writer.
+    let tap_touch = Arc::new(TokioMutex::new(Touch::new_writer(config.is_test_mode() || config.no_draw)));
+
+    // Silent start: nothing is typed or tapped at boot or when the loop restarts
+    // after a config change, because whatever is open on the tablet would receive it.
+    info!("Ghostwriter ready; tap the {} corner to start a run", config.trigger_corner);
 
     // Initialize engine
     let mut engine_options = OptionMap::new();
@@ -470,14 +510,14 @@ async fn run_ghostwriter_loop(
                     let engine_clone = Arc::clone(&engine);
                     let progress_tx_clone = progress_tx.clone();
                     let cancellation_clone = Arc::clone(&cancellation);
-                    let touch_clone = Arc::clone(&touch);
+                    let tap_touch_clone = Arc::clone(&tap_touch);
                     tokio::spawn(async move {
                         coordinator::processing_task(
                             config_clone,
                             engine_clone,
                             progress_tx_clone,
                             cancellation_clone,
-                            touch_clone,
+                            tap_touch_clone,
                         ).await
                     })
                 };
@@ -485,6 +525,9 @@ async fn run_ghostwriter_loop(
                 // Wait for either processing to complete or user to cancel
                 // The cancel_monitor will trigger cancellation which processing_task respects
                 let processing_result = processing_handle.await;
+
+                // Even if the task panicked, make sure nothing is left typed on the page
+                let _ = progress_tx.send(ProgressState::Idle);
 
                 // Cancel the cancel monitor (it may still be waiting)
                 cancellation.cancel_execution();
@@ -573,7 +616,7 @@ fn register_tools(
     let no_draw = config.no_draw;
     let keyboard_clone = Arc::clone(&keyboard);
 
-    let tool_config_draw_text = load_config("tool_draw_text.json");
+    let tool_config_draw_text = load_config("tool_draw_text.json")?;
     engine.register_tool(
         "draw_text",
         serde_json::from_str::<serde_json::Value>(tool_config_draw_text.as_str())?,
@@ -607,7 +650,7 @@ fn register_tools(
         let pen_clone = Arc::clone(&pen);
         let test_mode = config.is_test_mode();
 
-        let tool_config_draw_svg = load_config("tool_draw_svg.json");
+        let tool_config_draw_svg = load_config("tool_draw_svg.json")?;
         engine.register_tool(
             "draw_svg",
             serde_json::from_str::<serde_json::Value>(tool_config_draw_svg.as_str())?,

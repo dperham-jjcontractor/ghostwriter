@@ -5,6 +5,8 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Each job copies its output into the run summary, which is readable on the
+# run page without signing in to GitHub (raw logs are not).
 jobs:
   format:
     name: Check Formatting
@@ -15,7 +17,11 @@ jobs:
         with:
           components: rustfmt
       - name: Check formatting
-        run: cargo fmt -- --check
+        run: |
+          set -o pipefail
+          cargo fmt -- --check 2>&1 | tee fmt.txt || status=$?
+          { echo '### rustfmt'; echo '```diff'; cat fmt.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit ${status:-0}
 
   lint:
     name: Clippy Linting
@@ -25,8 +31,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+      - uses: Swatinem/rust-cache@v2
       - name: Run clippy
-        run: cargo clippy -- -D warnings
+        run: |
+          set -o pipefail
+          cargo clippy --all-targets -- -D warnings 2>&1 | tee clippy.txt || status=$?
+          { echo '### clippy'; echo '```'; grep -v '^ *Compiling\|^ *Checking\|^ *Downloaded\|^ *Downloading' clippy.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit ${status:-0}
 
   check:
     name: Check Compilation
@@ -34,5 +45,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - name: Check code compiles
-        run: cargo check --all-targets --all-features
+        run: |
+          set -o pipefail
+          cargo check --all-targets --all-features 2>&1 | tee check.txt || status=$?
+          { echo '### cargo check'; echo '```'; grep -v '^ *Compiling\|^ *Checking\|^ *Downloaded\|^ *Downloading' check.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit ${status:-0}

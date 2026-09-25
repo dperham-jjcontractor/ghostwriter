@@ -14,7 +14,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Unit tests (framebuffer skip table, ASCII fold, config precedence)
-        run: cargo test --lib
+        run: |
+          set -o pipefail
+          cargo test --lib 2>&1 | tee test.txt || status=$?
+          { echo '### cargo test --lib'; echo '```'; grep -v '^ *Compiling\|^ *Downloaded\|^ *Downloading' test.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit ${status:-0}
 
   build-rm2:
     name: Build ghostwriter-rm2 (armv7, reMarkable 2)
@@ -31,7 +35,11 @@ jobs:
       - name: Install cross 0.2.5
         run: cargo install cross --version 0.2.5 --locked
       - name: Build
-        run: cross build --release --target armv7-unknown-linux-gnueabihf
+        run: |
+          set -o pipefail
+          cross build --release --target armv7-unknown-linux-gnueabihf 2>&1 | tee build.txt || status=$?
+          { echo '### cross build (armv7)'; echo '```'; grep -v '^ *Compiling\|^ *Downloaded\|^ *Downloading' build.txt | tail -n 200; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit ${status:-0}
       - name: Package
         run: |
           cp target/armv7-unknown-linux-gnueabihf/release/ghostwriter ghostwriter-rm2

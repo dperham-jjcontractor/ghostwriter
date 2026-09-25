@@ -92,9 +92,11 @@ impl OpenAI {
         Ok(serde_json::from_str(&text)?)
     }
 
-    /// A cheap yes/no call: does the page ask for a picture? Sends only the
-    /// image and one question, so it costs a fraction of the main request.
-    async fn page_asks_for_drawing(&self, cancellation: &GhostwriterCancellation) -> Result<bool> {
+    /// Request body for the cheap yes/no drawing check: only the page image and
+    /// one question, so it costs a fraction of the main request. Built
+    /// synchronously so no `&self` is held across an await (the tool callbacks
+    /// are not `Sync`).
+    fn drawing_check_body(&self) -> json {
         let mut content: Vec<json> = self.content.iter().filter(|item| item["type"] == "image_url").cloned().collect();
         content.push(json!({
             "type": "text",
@@ -108,11 +110,13 @@ impl OpenAI {
         if !self.reasoning_effort.is_empty() {
             body["reasoning_effort"] = json!(self.reasoning_effort);
         }
-        let request = Self::send_once(&self.client, &self.base_url, &self.api_key, &body);
-        let response = with_cancellation(request, cancellation).await?;
+        body
+    }
+
+    fn answer_says_yes(response: &json) -> bool {
         let answer = response["choices"][0]["message"]["content"].as_str().unwrap_or("").trim().to_ascii_lowercase();
         debug!("Drawing check answered: {:?}", answer);
-        Ok(answer.starts_with('y'))
+        answer.starts_with('y')
     }
 
     fn call_tool(&mut self, name: &str, input: json, status_callback: &mut Option<StatusCallback>) -> Result<()> {
@@ -201,12 +205,14 @@ impl LLMEngine for OpenAI {
         // Decide whether to require the drawing tool before the main request.
         let mut tool_choice = json!("required");
         if self.drawing_check && self.tools.iter().any(|tool| tool.name == "draw_svg") {
-            match self.page_asks_for_drawing(cancellation).await {
-                Ok(true) => {
+            let check_body = self.drawing_check_body();
+            let request = Self::send_once(&self.client, &self.base_url, &self.api_key, &check_body);
+            match with_cancellation(request, cancellation).await {
+                Ok(response) if Self::answer_says_yes(&response) => {
                     info!("The page asks for a drawing; requiring draw_svg");
                     tool_choice = json!({ "type": "function", "function": { "name": "draw_svg" } });
                 }
-                Ok(false) => {}
+                Ok(_) => {}
                 Err(e) => warn!("Drawing check failed ({}); leaving the tool choice to the model", e),
             }
         }

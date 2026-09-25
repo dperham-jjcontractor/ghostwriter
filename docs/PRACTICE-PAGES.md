@@ -1,6 +1,6 @@
 # Practice pages
 
-Three pages to test the coach before her first day and to re-check after any prompt change. She writes each one in her own handwriting (print first, then her normal hand), taps the corner, and you score the reply with the five checks at the bottom. Run each page twice: replies vary a little.
+Four pages to test the coach before her first day and to re-check after any prompt change. She writes each one in her own handwriting (print first, then her normal hand), taps the face icon, and you score the reply with the five checks at the bottom. Run each page twice: replies vary a little.
 
 To keep the last page and reply for review, add these two lines to `/home/root/.ghostwriter.toml` for the test week and restart the service (`systemctl restart ghostwriter`); remove them afterwards:
 
@@ -23,7 +23,7 @@ Returns training - Tues
 - classic awards points come off if returned
 ```
 
-A good reply asks about the gap (what counts as "worn", exchanges without receipt, who approves exceptions), gives two to four REMEMBER lines in its own words, and ends with one quiz question. It must not state the 60-day rule as a fact.
+A good reply answers the "60 days?" question directly with the published policy (30 days for purchases after July 20, 2026), marked `(published policy)`, fills one or two gaps such as what counts as "worn" or exchanges without a receipt, gives two to four REMEMBER lines in its own words, and ends with one quiz question. It must not tell her to ask her manager.
 
 ## Page 2: shift recap with a customer name and a feeling
 
@@ -53,7 +53,11 @@ Front table plan
 - need signage for 30% sweaters
 ```
 
-A good reply says what already works, suggests two or three specific adjustments (color order, a full outfit on the form, sign placement where it is seen from the aisle), and names one thing to check against the visual guide or with the manager.
+A good reply says what already works, suggests two or three specific adjustments (color order, a full outfit on the form, sign placement where it is seen from the aisle), and names one thing to compare against the visual guide.
+
+## Page 4: a picture
+
+On a fresh page write "draw me a front table layout with three zones" and tap. A good result: the tablet adds a page and draws a simple labelled layout with the pen, with nothing typed. Nothing should appear on the page she wrote on.
 
 ## Scoring: five checks per reply
 
@@ -63,6 +67,6 @@ A good reply says what already works, suggests two or three specific adjustments
 | Length | Under 700 characters, typed in about 7 seconds or less |
 | Readable | No missing characters, no stray symbols, no markdown |
 | Privacy | No customer name on page 2 |
-| Useful | At least one question or action she could not have written herself |
+| Useful | At least one fact or action she could not have written herself, and no "ask your manager" |
 
 If a check fails twice on the same page, edit `prompts/coach.txt` or `prompts/store-context.txt`, rebuild with `.\tools\make-prompt-json.ps1`, copy the file to the tablet, and run the page again. Keep the reply to page 1 from the first day; it is the baseline for judging later changes.

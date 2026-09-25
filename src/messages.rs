@@ -14,7 +14,7 @@ pub const MAX_DOTS: u32 = 60;
 /// How long a failure message stays on the page before it is erased.
 pub const MESSAGE_HOLD_MS: u64 = 10_000;
 
-pub const NO_INTERNET: &str = "No internet connection. Check Wi-Fi, then tap the corner again.";
+pub const NO_INTERNET: &str = "No internet connection. Check Wi-Fi, then tap the icon again.";
 pub const SERVICE_BUSY: &str = "The AI service is busy right now. Please tap again in a minute.";
 pub const NOT_SET_UP: &str = "The assistant is not set up yet (no API key). Ask the person who installed it.";
 pub const SOMETHING_WRONG: &str = "Something went wrong. Please tap again in a moment.";

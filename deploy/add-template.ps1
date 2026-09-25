@@ -1,6 +1,6 @@
 <#
 Install the "Lined medium + coach" page template on the tablet: the normal
-lined page with a small brain icon in the top-right corner marking the tap spot.
+lined page with a small face icon at the bottom centre marking the tap spot.
 
 Usage (PowerShell, from the repo folder):
   .\deploy\add-template.ps1 -Tablet 192.168.199.110

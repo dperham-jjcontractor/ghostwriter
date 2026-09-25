@@ -1,6 +1,6 @@
 ## This fork: a notes coach for the reMarkable 2
 
-This fork of [awwaiid/ghostwriter](https://github.com/awwaiid/ghostwriter) turns the experiment into an appliance for one person: write notes on the tablet, tap a corner, and a short typed evaluation with recommendations appears under the notes. It is text-only, starts on boot, and never draws on the page.
+This fork of [awwaiid/ghostwriter](https://github.com/awwaiid/ghostwriter) turns the experiment into an appliance for one person: write notes on the tablet, tap the icon at the bottom of the page, and a short typed evaluation with recommendations appears on the next page. Ask for a picture and it draws one with the pen instead. It starts on boot, answers questions directly, remembers what it learns about her work, and never writes over her notes.
 
 - Set it up from a Windows PC: [docs/OWNER-SETUP.md](docs/OWNER-SETUP.md)
 - The card for the person using it: [docs/FIRST-DAY-CARD.md](docs/FIRST-DAY-CARD.md)

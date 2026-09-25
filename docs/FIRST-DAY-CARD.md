@@ -12,7 +12,9 @@ Print the short version and tuck it into the tablet's folio.
 
 ## Asking for something specific
 
-Write the request on the page and tap: "quiz me", "summarize this", "make this a checklist", "longer answer", or "draw me a table layout with three zones". Pictures are drawn with the pen on the reply page and take a little longer than typed replies.
+Write the request or question on the page and tap: "quiz me", "summarize this", "make this a checklist", "longer answer", "what is the return policy?", or "draw me a table layout with three zones". Questions get a direct answer. Pictures are drawn with the pen on the reply page.
+
+To teach it something for later, write "remember:" followed by the fact, for example "remember: my manager is Dana". It keeps a short memory of your work and uses it on later pages.
 
 ## Good to know
 
@@ -26,7 +28,7 @@ Write the request on the page and tap: "quiz me", "summarize this", "make this a
 
 | Message | What to do |
 |---|---|
-| No internet connection. Check Wi-Fi, then tap the corner again. | Turn Wi-Fi on or wait for it to reconnect, then tap again. |
+| No internet connection. Check Wi-Fi, then tap the icon again. | Turn Wi-Fi on or wait for it to reconnect, then tap again. |
 | The AI service is busy right now. Please tap again in a minute. | Wait a minute and tap again. |
 | The assistant is not set up yet (no API key). | Tell the person who set this up. |
 | Something went wrong. Please tap again in a moment. | Tap again. If it keeps happening, tell the person who set this up. |
@@ -35,4 +37,4 @@ Messages erase themselves after about ten seconds and you are left on the new pa
 
 ## Is it on?
 
-Write "hello" on a fresh page and tap the corner. If "Thinking" appears within a few seconds, the coach is running. If nothing appears after two tries, it has stopped; the person who set it up can restart it.
+Write "hello" on a fresh page and tap the face icon. If a new page with "Thinking" appears within a few seconds, the coach is running. If nothing happens after two tries, it has stopped; the person who set it up can restart it.

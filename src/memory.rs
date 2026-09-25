@@ -227,7 +227,7 @@ mod tests {
 
     #[test]
     fn skips_replies_with_nothing_to_learn() {
-        assert!(MemoryUpdater::should_skip("-- COACH --\nOpen a notebook page, then tap the corner again."));
+        assert!(MemoryUpdater::should_skip("-- COACH --\nOpen a notebook page, then tap the icon again."));
         assert!(MemoryUpdater::should_skip("-- COACH --\nNothing new since my last note."));
         assert!(MemoryUpdater::should_skip("   "));
         assert!(!MemoryUpdater::should_skip("-- COACH --\nASK YOUR MANAGER: ..."));

@@ -1,118 +1,151 @@
 # Owner setup guide
 
-This fork turns Ghostwriter into a notes coach for one reMarkable 2. You maintain it from a Windows PC; nothing needs to be installed on the PC except what Windows already ships (PowerShell, `ssh`, `scp`). GitHub builds the tablet binary for you.
+This fork turns Ghostwriter into a notes coach for one reMarkable 2. You maintain it from a Windows PC with nothing installed beyond what Windows ships (PowerShell, `ssh`, `scp`). GitHub builds the tablet program for you.
+
+The examples use the tablet's Wi-Fi address, `192.168.199.110`. Over the USB cable the tablet is `10.11.99.1`, which is also what the scripts use when you leave out `-Tablet`.
 
 ## What you need
 
-- The tablet's root password: on the tablet, Settings > Help > Copyrights and licenses, scroll to the bottom. The same screen shows the tablet's Wi-Fi address.
-- An OpenAI API key from <https://platform.openai.com/api-keys>. Set a monthly spending limit there while you are at it; a tap costs about a cent on `gpt-6-sol`.
-- A USB cable (the tablet is `10.11.99.1` over USB) or the tablet's Wi-Fi address. If `ssh root@10.11.99.1` does not answer over USB, Windows may be missing the "Remote NDIS" driver; use the Wi-Fi address instead and come back to USB later.
+- The tablet's root password and Wi-Fi address: on the tablet, Settings > Help > Copyrights and licenses, at the bottom.
+- An OpenAI API key from <https://platform.openai.com/api-keys>, with a monthly spending limit set on the account. A typed reply costs roughly two to three cents, counting the drawing check and the memory step; a drawing costs a few cents more.
+- The PC and the tablet on the same Wi-Fi, or the USB cable.
 
-## 1. Get a binary
+## 1. Get the program
 
-Every push to the `coach-v1` branch builds one. On GitHub: **Actions** > the latest green **Build rm2 binary** run > **Artifacts** > `ghostwriter-rm2`. It downloads as a zip; unzip it. The file inside, also called `ghostwriter-rm2`, is the program.
+On GitHub: **Releases** > the newest release > `ghostwriter-rm2`. No GitHub login is needed. Save it anywhere, for example your Downloads folder.
 
-## 2. Install on the tablet
+## 2. First-time install
 
-From the repo folder in PowerShell:
+All commands run in PowerShell from the repo folder, `C:\Users\dperham\source\ghostwriter`.
 
-```powershell
-.\deploy\deploy.ps1 -Binary C:\path\to\ghostwriter-rm2 -SetKey
-```
-
-Add `-Tablet 192.168.1.50` (the tablet's Wi-Fi address) if you are not on the USB cable. It asks for the tablet password a few times, then for the API key once, and ends with `Ghostwriter is running.`
-
-What it installs, all under `/home/root/ghostwriter` on the tablet: the binary, the service, the prompt, `.env` with the key, and `/home/root/.ghostwriter.toml` with the settings. It also copies the service into `/etc/systemd/system`, which is the one thing a firmware update wipes.
-
-## 3. Check that capture works
-
-Do this once now, and again after any firmware update. On the PC:
+Let this PC log in to the tablet without a password (asks for the tablet password once):
 
 ```powershell
-ssh root@10.11.99.1 "systemctl stop ghostwriter; cd /home/root/ghostwriter; ./ghostwriter --no-submit --no-loop --save-screenshot /home/root/shot.png"
+.\deploy\authorize-pc.ps1 -Tablet 192.168.199.110
 ```
 
-Open a notebook page on the tablet with some writing on it and tap the top-right corner. The command exits. Then:
+Install the program, its service, the prompt and the settings file:
 
 ```powershell
-scp root@10.11.99.1:/home/root/shot.png .
-ssh root@10.11.99.1 "systemctl start ghostwriter"
+.\deploy\deploy.ps1 -Binary $HOME\Downloads\ghostwriter-rm2 -Tablet 192.168.199.110
 ```
 
-Open `shot.png`. It should look like the page. A black or scrambled image means the framebuffer offset is wrong for this firmware; the log line `RM2 framebuffer: firmware X.Y ... skip=N` tells you what was used, and `GHOSTWRITER_FB_SKIP=<bytes>` in front of the command tries another value without a rebuild.
-
-## 4. Check the model without the tablet screen
+Copy the OpenAI key to the clipboard, then store it on the tablet:
 
 ```powershell
-ssh root@10.11.99.1 "cd /home/root/ghostwriter; set -a; . ./.env; set +a; ./ghostwriter --input-png /home/root/shot.png --no-trigger --no-loop --no-draw --output-file /home/root/reply.txt; cat /home/root/reply.txt"
+.\deploy\set-key.ps1 -Tablet 192.168.199.110
 ```
 
-This sends the saved page to the model and prints the reply instead of typing it. A `401` in the output means the key is wrong; `No API key configured` means `.env` is empty.
-
-## 5. The real thing
-
-Open a notebook, write three lines such as "Fitting room: max 6 items, ask for size first", hide the toolbar, tap the top-right corner once. Watch the log from the PC if you like:
+Add the page template with the tap icon (restarts the tablet interface for about ten seconds):
 
 ```powershell
-ssh root@10.11.99.1 "journalctl -u ghostwriter -f"
+.\deploy\add-template.ps1 -Tablet 192.168.199.110
 ```
 
-## Firmware upgrade
+Then, on the tablet, open her notebook, open the page template menu, and pick **Lined medium + coach** under Lines. New pages keep the template of the page before them.
 
-The tablet is on an old firmware. Upgrading is recommended so the capture path is the one other people run. Order matters:
+## 3. Updating to a newer version
 
-1. Run the capture check (step 3) on the current firmware and keep `shot.png`.
-2. On the tablet: Settings > General > Software, install the update, reboot.
-3. Settings > General > Software: turn **automatic updates off**.
-4. The update wiped the service and changed the tablet's ssh key. On the PC run `ssh-keygen -R 10.11.99.1` (and the same for the Wi-Fi address), then run `deploy.ps1` again.
-5. Run the capture check again on the new firmware.
-6. Newer firmware puts the tablet's own close button in the top-right corner. If tapping the corner closes the notebook, change `trigger_corner` in `/home/root/.ghostwriter.toml` to `LL` (lower-left, out of the way of a right hand), restart with `ssh root@10.11.99.1 "systemctl restart ghostwriter"`, and update the card.
+Download the newest release and run `deploy.ps1` again. The key, settings, prompt and memory on the tablet are kept.
+
+## How it behaves
+
+- She taps the face icon at the bottom centre of the page once, quickly. The tablet adds a page, shows "Thinking...", and types the reply there, starting with `-- COACH --`. The on-screen keyboard closes by itself afterwards, and she swipes right to get back to her notes.
+- A tap while the on-screen keyboard is open is ignored on purpose: the keyboard's space bar sits on top of the icon. She closes the keyboard, then taps.
+- A request for a picture ("draw me a table layout with three zones") is drawn with the pen on the new page instead of typed.
+- Questions get direct answers from what it knows about Talbots, her store and general retail practice, marked `(published policy)` or `(general)`.
+
+## Checks
+
+Capture check: what the coach sees. Run it with a notebook page open on the tablet:
+
+```powershell
+ssh root@192.168.199.110 "systemctl stop ghostwriter; cd /home/root/ghostwriter; ./ghostwriter --no-submit --no-loop --no-trigger --save-screenshot /home/root/shot.png; systemctl start ghostwriter"
+scp root@192.168.199.110:/home/root/shot.png .
+```
+
+`shot.png` should look like the page. A black or scrambled image means the screen-capture offset is wrong; the log line `RM2 framebuffer: ... skip=N` shows what was used, and putting `GHOSTWRITER_FB_SKIP=<bytes>` in front of `./ghostwriter` tries another value without a rebuild.
+
+Model check: send that saved page to the model and print the reply instead of typing it:
+
+```powershell
+ssh root@192.168.199.110 "cd /home/root/ghostwriter; ./ghostwriter --input-png /home/root/shot.png --no-trigger --no-loop --no-draw --output-file /home/root/reply.txt; cat /home/root/reply.txt"
+```
+
+`API 401` means the key is wrong; `No API key configured` means it was never stored.
+
+Drawing check: draw an SVG file on the current page through the normal drawing path, with no model call:
+
+```powershell
+ssh root@192.168.199.110 "systemctl stop ghostwriter; cd /home/root/ghostwriter; ./ghostwriter --test-draw-svg /home/root/picture.svg; systemctl start ghostwriter"
+```
+
+Live log, to watch a real tap:
+
+```powershell
+ssh root@192.168.199.110 "journalctl -u ghostwriter -f"
+```
 
 ## Tuning the prompt
 
 The coach's instructions are two text files:
 
-- `prompts/coach.txt`: the generic coaching rules (in git).
-- `prompts/store-context.txt`: background about her store and her job (kept out of git, because this repository is public).
+- `prompts/coach.txt`: the coaching rules (in git).
+- `prompts/store-context.txt`: background about Talbots, her store and her job (kept out of git, because this repository is public).
 
 Edit either in Notepad, then:
 
 ```powershell
 .\tools\make-prompt-json.ps1
-scp prompts\coach.local.json root@10.11.99.1:/home/root/ghostwriter/prompts/coach.json
+scp prompts\coach.local.json root@192.168.199.110:/home/root/ghostwriter/prompts/coach.json
 ```
 
-The next tap uses the new text; no rebuild, no restart. `deploy.ps1` sends the same personalised file whenever it runs. Keep replies under about 700 characters: the keyboard types roughly 100 characters per second and the reply stays on the page.
-
-To try the cheaper model, set `model = "gpt-6-luna"` in `/home/root/.ghostwriter.toml` and restart the service.
+The next tap uses the new text; no rebuild, no restart. `deploy.ps1` sends the same personalised file whenever it runs.
 
 ## What it learns over time
 
-After each reply the coach rewrites a short memory file, `/home/root/ghostwriter/memory.txt`, with durable facts from her pages: her duties, her manager's and coworkers' first names as she writes them, store terms, how she likes replies, projects she keeps coming back to, and anything she wrote "remember ..." about. Every later page gets that memory in its prompt. The file is replaced each time and capped at 1,500 characters, so it consolidates rather than grows; every version is also appended to `memory-log.txt`.
+After each reply the coach rewrites a short memory file, `/home/root/ghostwriter/memory.txt`, with durable facts from her pages: her duties, the first names of her manager and coworkers as she writes them, store terms, how she likes replies, projects she keeps coming back to, and anything she wrote "remember ..." about. Every later page gets that memory in its prompt. The file is replaced each time and capped at 1,500 characters, so it consolidates rather than grows; every version is also kept in `memory-log.txt`.
 
 ```powershell
 .\deploy\show-memory.ps1 -Tablet 192.168.199.110          # read it
 .\deploy\show-memory.ps1 -Tablet 192.168.199.110 -Reset   # forget everything
 ```
 
-Glance at it after her first week. If it has picked up something wrong, edit the file (the script's help shows how) or reset it. Customer details are excluded by rule. It costs one extra API call per tap; set `memory_enabled = false` in the settings file to turn it off.
+Glance at it after her first week. If it picked up something wrong, edit the file (the script's help shows how) or reset it. Customer details are excluded by rule.
 
-## After any tablet software update
+## Settings
 
-Run `deploy.ps1` again (the service is gone), then the capture check. Nothing else is lost: the key, settings and prompt live in `/home/root`.
+The settings file is `/home/root/.ghostwriter.toml` on the tablet. After changing it, run `ssh root@192.168.199.110 "systemctl restart ghostwriter"`. The lines worth knowing:
+
+| Setting | What it does |
+|---|---|
+| `model` | `gpt-6-sol` (default) or the cheaper `gpt-6-luna` |
+| `trigger_corner` | Where the tap goes: `BC` bottom centre (default). The corners and the top centre collide with the tablet's own buttons. |
+| `reply_on_new_page` | `true`: replies go on a new page, never over her notes |
+| `no_svg` | `false`: pictures allowed; `true`: typed replies only |
+| `svg_renderer` | `strokes` (default) traces each shape as one pen stroke; `pressure` fills row by row |
+| `memory_enabled` | `true`: the coach keeps and uses its memory about her |
+
+## If a tablet software update is ever installed
+
+Automatic updates are off. If an update does get installed, it removes the service and the page template and gives the tablet a new ssh identity. Nothing in `/home/root` is lost. Then:
+
+1. `ssh-keygen -R 192.168.199.110` (and `ssh-keygen -R 10.11.99.1`), so Windows accepts the tablet's new identity.
+2. Run `deploy.ps1` and `add-template.ps1` again.
+3. Run the capture check.
 
 ## Troubleshooting
 
 | Symptom | Look at |
 |---|---|
-| Nothing happens on tap | `ssh root@10.11.99.1 "systemctl status ghostwriter"`; if stopped, `systemctl start ghostwriter` |
-| "not set up yet" on the page | `.env` on the tablet has no key; run `deploy.ps1 -SetKey` again |
-| "Something went wrong" every time | `journalctl -u ghostwriter -n 50`; the API error text is in there |
-| Replies read a different page | capture check (step 3) |
-| Two taps needed to start | should be fixed; if it returns, report it with the debug log (`log_level = "debug"` in the TOML) |
+| Nothing happens on tap | Is the on-screen keyboard open? Close it and tap again. Otherwise `ssh root@192.168.199.110 "systemctl status ghostwriter"`, and `systemctl start ghostwriter` if it stopped. |
+| "The assistant is not set up yet" | The key is missing or expired: run `set-key.ps1` again. |
+| "Something went wrong" every time | `ssh root@192.168.199.110 "journalctl -u ghostwriter -n 50"`; the API error text is in there. |
+| Letters typed where a drawing should be | The keyboard was not closed before drawing; the log says why. If the keyboard layout changed, fix it in Settings > Language and keyboard. |
+| Replies describe a different page | Run the capture check. |
 
 ## Privacy notes
 
 - Every tap sends the whole page image to OpenAI. Keep customer details off coached pages.
-- Keep `web_server = false`: the settings page has no password.
+- Keep `web_server = false`: the settings web page has no password.
 - Keep `log_level = "info"`: debug logs include request details.

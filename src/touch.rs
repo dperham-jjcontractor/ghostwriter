@@ -343,8 +343,20 @@ impl Touch {
     /// a new page when already on the last one. Used to keep typed replies off
     /// the page the user is writing on.
     pub async fn swipe_to_next_page(&mut self) -> Result<()> {
-        self.swipe_horizontal(700, 100, 512, 30, 15).await
+        self.swipe_horizontal(700, 100, 512, 30, 15).await?;
+        // On the last page the swipe does not add a page by itself; it shows a
+        // round "add page" button at the right edge. Tap it. On other pages the
+        // swipe has already turned the page and this tap lands on the canvas,
+        // where a finger tap does nothing.
+        sleep(Duration::from_millis(400)).await;
+        self.touch_start(Self::ADD_PAGE_BUTTON).await?;
+        sleep(Duration::from_millis(100)).await;
+        self.touch_stop().await?;
+        Ok(())
     }
+
+    /// The round "add page" button xochitl shows at the right edge on the last page.
+    const ADD_PAGE_BUTTON: (i32, i32) = (690, 512);
 
     /// Drag one finger horizontally from x_start to x_end at height y, in
     /// `steps` moves `step_ms` apart (a real page-turn swipe takes ~0.5 s).

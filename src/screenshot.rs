@@ -148,6 +148,14 @@ impl Screenshot {
         dark as f32 / total > 0.5
     }
 
+    /// Whether the tablet's on-screen keyboard is showing in this capture.
+    pub fn keyboard_is_open(&self) -> bool {
+        match &self.mode {
+            ScreenshotMode::Real { data, .. } if !data.is_empty() => Self::keyboard_looks_open(data),
+            _ => false,
+        }
+    }
+
     /// Fraction of pixels darker than mid-gray in a PNG. A value near 1.0 means
     /// the capture read the wrong memory and the model would see a black page.
     fn dark_fraction(png: &[u8]) -> Option<f32> {

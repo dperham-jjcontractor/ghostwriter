@@ -200,6 +200,12 @@ pub struct Args {
     #[arg(long)]
     #[serde(skip_serializing_if = "Option::is_none")]
     test_interaction_log: Option<String>,
+
+    /// Draw this SVG file on the current page through the normal drawing path
+    /// (closing the on-screen keyboard first) and exit; no model call. For testing.
+    #[arg(long)]
+    #[serde(skip)]
+    test_draw_svg: Option<String>,
 }
 
 #[tokio::main]
@@ -245,20 +251,31 @@ fn draw_text(text: &str, keyboard: &mut Keyboard) -> Result<()> {
     Ok(())
 }
 
-fn draw_svg(svg_data: &str, keyboard: &mut Keyboard, pen: &mut Pen, save_bitmap: Option<&String>, no_draw: bool) -> Result<()> {
-    info!("Drawing SVG to the screen.");
-    keyboard.progress_end()?;
+/// Put an SVG on the page with the pen. The caller must make sure the
+/// on-screen keyboard is closed first (see Touch::close_keyboard_if_open).
+fn draw_svg(svg_data: &str, pen: &mut Pen, save_bitmap: Option<&String>, no_draw: bool, renderer: &str) -> Result<()> {
+    info!("Drawing SVG to the screen ({} renderer).", renderer);
     let scale = 2u32;
     if let Some(save_bitmap) = save_bitmap {
         let bitmap = svg_to_bitmap(svg_data, VIRTUAL_WIDTH * scale, VIRTUAL_HEIGHT * scale)?;
         write_bitmap_to_file(&bitmap, save_bitmap)?;
     }
-    if !no_draw {
-        // Use alpha-to-pressure rendering for best quality: anti-aliased edges via pen pressure
-        let alpha_bitmap = svg_to_alpha_bitmap(svg_data, VIRTUAL_WIDTH * scale, VIRTUAL_HEIGHT * scale)?;
-        pen.draw_bitmap_alpha_pressure(&alpha_bitmap, scale)?;
+    if no_draw {
+        return Ok(());
     }
-    Ok(())
+    if renderer == "pressure" {
+        // Rasterise and fill row by row, with alpha as pen pressure.
+        let alpha_bitmap = svg_to_alpha_bitmap(svg_data, VIRTUAL_WIDTH * scale, VIRTUAL_HEIGHT * scale)?;
+        pen.draw_bitmap_alpha_pressure(&alpha_bitmap, scale)
+    } else {
+        // Trace each shape as one pen stroke.
+        pen.draw_svg_strokes(svg_data)
+    }
+}
+
+/// Run an async touch action from inside a synchronous tool callback.
+fn block_on_touch<T>(action: impl std::future::Future<Output = Result<T>>) -> Result<T> {
+    tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(action))
 }
 
 fn determine_engine_name(engine_arg: &Option<String>, model: &str) -> Result<String> {
@@ -298,6 +315,18 @@ async fn ghostwriter(args: &Args, mut config: Config) -> Result<()> {
         let device_model = DeviceModel::from_string(device_str)?;
         config.test_device_model = Some(device_model);
         info!("Test mode enabled for device: {}", device_model.name());
+    }
+
+    // Handle --test-draw-svg: draw a file through the production drawing path and exit
+    if let Some(svg_path) = &args.test_draw_svg {
+        let svg = std::fs::read_to_string(svg_path)?;
+        if !Touch::new_writer(false).close_keyboard_if_open().await? {
+            anyhow::bail!("The on-screen keyboard would not close; not drawing");
+        }
+        let mut pen = Pen::new(false);
+        draw_svg(&svg, &mut pen, config.save_bitmap.as_ref(), false, &config.svg_renderer)?;
+        info!("Test drawing finished");
+        return Ok(());
     }
 
     // Handle --save-config option
@@ -683,6 +712,7 @@ fn register_tools(
         let pen_clone = Arc::clone(&pen);
         let test_mode = config.is_test_mode();
         let select_pen = config.select_pen_before_drawing;
+        let renderer = config.svg_renderer.clone();
         let last_reply_svg = Arc::clone(&last_reply);
 
         let tool_config_draw_svg = load_config("tool_draw_svg.json")?;
@@ -707,32 +737,49 @@ fn register_tools(
                     }
                 }
 
+                // Erase "Thinking..." first: the backspaces only land while the text cursor is active.
+                if let Err(e) = lock!(keyboard_clone).progress_end() {
+                    log::error!("Failed to erase the progress text: {}", e);
+                }
+
+                // Pen strokes over an open on-screen keyboard press its keys, so the
+                // keyboard must be closed before anything is drawn.
+                if !no_draw && !test_mode {
+                    let closed = block_on_touch(async {
+                        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                        Touch::new_writer(false).close_keyboard_if_open().await
+                    });
+                    match closed {
+                        Ok(true) => {}
+                        Ok(false) => {
+                            log::error!("The on-screen keyboard would not close; not drawing");
+                            return;
+                        }
+                        Err(e) => {
+                            log::error!("Could not check the on-screen keyboard ({}); not drawing", e);
+                            return;
+                        }
+                    }
+                }
+
                 // Switch to fineliner before drawing, remember original tool for restore
                 // Use a fresh Touch instance to avoid deadlock with trigger_task which
                 // holds the shared touch RwLock indefinitely while waiting for user trigger
                 let previous_tool = if select_pen && !no_draw && !test_mode {
-                    tokio::task::block_in_place(|| {
-                        tokio::runtime::Handle::current().block_on(async { Touch::new(false, TriggerCorner::UpperRight).select_fineliner().await })
-                    })
-                    .unwrap_or(PenTool::Unknown)
+                    block_on_touch(async { Touch::new(false, TriggerCorner::UpperRight).select_fineliner().await }).unwrap_or(PenTool::Unknown)
                 } else {
                     PenTool::Unknown
                 };
 
-                let mut keyboard = lock!(keyboard_clone);
                 let mut pen = lock!(pen_clone);
-                if let Err(e) = draw_svg(svg_data, &mut keyboard, &mut pen, save_bitmap.as_ref(), no_draw) {
+                if let Err(e) = draw_svg(svg_data, &mut pen, save_bitmap.as_ref(), no_draw, &renderer) {
                     log::error!("Failed to draw SVG: {}", e);
                 }
-                drop(keyboard);
                 drop(pen);
 
                 // Restore the original tool after drawing
                 if select_pen && !no_draw && !test_mode && previous_tool != PenTool::Unknown {
-                    tokio::task::block_in_place(|| {
-                        tokio::runtime::Handle::current().block_on(async { Touch::new(false, TriggerCorner::UpperRight).restore_tool(previous_tool).await })
-                    })
-                    .ok();
+                    block_on_touch(async { Touch::new(false, TriggerCorner::UpperRight).restore_tool(previous_tool).await }).ok();
                 }
             }),
         );

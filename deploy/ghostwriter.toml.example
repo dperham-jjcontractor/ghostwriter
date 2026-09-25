@@ -39,6 +39,10 @@ memory_enabled = true
 memory_model = ""
 memory_max_chars = 1500
 
+# How drawings are put on the page: "strokes" traces each shape as one pen stroke
+# (fast, crisp, erasable); "pressure" fills the picture in row by row.
+svg_renderer = "strokes"
+
 # Drawing. false lets the coach draw pictures with the pen when asked (they go on the
 # reply page, never on the notes). true makes it type only.
 no_svg = false

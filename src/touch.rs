@@ -358,6 +358,31 @@ impl Touch {
     /// The round "add page" button xochitl shows at the right edge on the last page.
     const ADD_PAGE_BUTTON: (i32, i32) = (690, 512);
 
+    /// The "Close" label at the top right of the on-screen keyboard (verified on
+    /// the reMarkable 2; the same spot on every keyboard layout).
+    const KEYBOARD_CLOSE_BUTTON: (i32, i32) = (697, 699);
+
+    /// Close the tablet's on-screen keyboard if it is showing.
+    ///
+    /// Typing a reply opens it, and it then covers the bottom third of the page:
+    /// the tap icon disappears under it, and pen strokes drawn over it press its
+    /// keys. Returns Ok(true) once the keyboard is closed (or was never open).
+    pub async fn close_keyboard_if_open(&mut self) -> Result<bool> {
+        for attempt in 1..=3 {
+            let mut screenshot = Screenshot::new()?;
+            screenshot.take_screenshot()?;
+            if !screenshot.keyboard_is_open() {
+                return Ok(true);
+            }
+            info!("On-screen keyboard is open; tapping Close (attempt {})", attempt);
+            self.tap(Self::KEYBOARD_CLOSE_BUTTON).await?;
+            sleep(Duration::from_millis(700)).await;
+        }
+        let mut screenshot = Screenshot::new()?;
+        screenshot.take_screenshot()?;
+        Ok(!screenshot.keyboard_is_open())
+    }
+
     /// Drag one finger horizontally from x_start to x_end at height y, in
     /// `steps` moves `step_ms` apart (a real page-turn swipe takes ~0.5 s).
     pub async fn swipe_horizontal(&mut self, x_start: i32, x_end: i32, y: i32, steps: i32, step_ms: u64) -> Result<()> {

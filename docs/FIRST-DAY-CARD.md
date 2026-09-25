@@ -7,7 +7,7 @@ Print the short version and tuck it into the tablet's folio.
 1. Write your notes as usual. Print rather than cursive when you can.
 2. When a page is done, close the keyboard if it is open, then tap the **face icon at the bottom centre of the page** once, quickly, with a fingertip.
 3. The tablet turns to the next page by itself and "Thinking..." appears there. The reply arrives in 10 to 30 seconds and starts with `-- COACH --`.
-4. Do not touch the screen while it is working. When the reply is done, swipe right to get back to your notes; the reply stays on its own page.
+4. Do not touch the screen while it is working. When the reply is done the keyboard closes by itself; swipe right to get back to your notes. The reply stays on its own page.
 5. Nothing happened? Make sure a notebook page is open, wait a few seconds, and tap the icon again.
 
 ## Asking for something specific

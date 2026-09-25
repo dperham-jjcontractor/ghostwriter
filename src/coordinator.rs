@@ -301,7 +301,7 @@ pub async fn processing_task(
     last_reply: Arc<Mutex<Option<String>>>,
     memory: Option<Arc<MemoryUpdater>>,
 ) -> Result<()> {
-    let result = processing_inner(&config, engine, &progress_tx, &cancellation, tap_touch, last_reply, memory).await;
+    let result = processing_inner(&config, engine, &progress_tx, &cancellation, Arc::clone(&tap_touch), last_reply, memory).await;
 
     if let Err(e) = &result {
         let error_msg = e.to_string();
@@ -315,7 +315,25 @@ pub async fn processing_task(
 
     // Always leave the page clean, whichever path was taken.
     let _ = progress_tx.send(ProgressState::Idle);
-    result
+
+    // Typing opens the tablet's on-screen keyboard, which then covers the tap
+    // icon at the bottom of the page. Close it once the status text is erased.
+    // Runs that stopped before typing anything (the keyboard was already open
+    // because she was typing, or no_submit) leave it alone.
+    let typed_on_page = match &result {
+        Ok(touched) => *touched,
+        Err(_) => true,
+    };
+    if typed_on_page && !config.no_draw && !config.no_keyboard && !config.is_test_mode() && config.input_png.is_none() {
+        sleep(Duration::from_millis(1200)).await;
+        match tap_touch.lock().await.close_keyboard_if_open().await {
+            Ok(true) => {}
+            Ok(false) => log::warn!("The on-screen keyboard is still open after the run"),
+            Err(e) => log::warn!("Could not check the on-screen keyboard: {}", e),
+        }
+    }
+
+    result.map(|_| ())
 }
 
 /// Script that sets the tablet clock from the network (installed by deploy/install.sh).
@@ -367,7 +385,9 @@ async fn processing_inner(
     tap_touch: Arc<TokioMutex<Touch>>,
     last_reply: Arc<Mutex<Option<String>>>,
     memory: Option<Arc<MemoryUpdater>>,
-) -> Result<()> {
+) -> Result<bool> {
+    // Returns Ok(true) when the run typed or drew on the page, Ok(false) when it
+    // stopped before touching the page.
     info!("Processing task: starting");
     if let Ok(mut reply) = last_reply.lock() {
         *reply = None;
@@ -400,7 +420,7 @@ async fn processing_inner(
     if config.no_submit {
         info!("Skipping LLM submission (no_submit mode)");
         let _ = progress_tx.send(ProgressState::Done);
-        return Ok(());
+        return Ok(false);
     }
 
     // A tap while the on-screen keyboard is open is a key press (the space bar
@@ -409,7 +429,7 @@ async fn processing_inner(
         if Screenshot::keyboard_looks_open(&png) {
             info!("On-screen keyboard looks open; ignoring this tap");
             let _ = progress_tx.send(ProgressState::Done);
-            return Ok(());
+            return Ok(false);
         }
     }
 
@@ -530,5 +550,5 @@ async fn processing_inner(
 
     let _ = progress_tx.send(ProgressState::Done);
     info!("Processing task: completed successfully");
-    Ok(())
+    Ok(true)
 }

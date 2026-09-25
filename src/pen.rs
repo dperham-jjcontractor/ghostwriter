@@ -78,8 +78,6 @@ impl Pen {
     /// Input coordinates are computed directly from bitmap pixel position for true sub-pixel accuracy,
     /// bypassing integer rounding through the virtual coordinate space.
     pub fn draw_bitmap_scaled(&mut self, bitmap: &[Vec<bool>], scale: u32) -> Result<()> {
-        let max_x = self.max_x_value() as f32;
-        let max_y = self.max_y_value() as f32;
         let bmp_w = VIRTUAL_WIDTH as f32 * scale as f32;
         let bmp_h = VIRTUAL_HEIGHT as f32 * scale as f32;
 
@@ -87,8 +85,7 @@ impl Pen {
         for (y, row) in bitmap.iter().enumerate() {
             for (x, &pixel) in row.iter().enumerate() {
                 if pixel {
-                    let ix = ((x as f32 / bmp_w) * max_x).round() as i32;
-                    let iy = ((y as f32 / bmp_h) * max_y).round() as i32;
+                    let (ix, iy) = self.frac_to_input(x as f32 / bmp_w, y as f32 / bmp_h);
                     if !is_pen_down {
                         self.pen_down_at((ix, iy))?;
                         is_pen_down = true;
@@ -216,6 +213,46 @@ impl Pen {
         self.virtual_to_input(point)
     }
 
+    /// Map a position given as fractions of the page (0.0 to 1.0 across and
+    /// down) to digitizer coordinates, without rounding through the 768x1024
+    /// virtual grid. The reMarkable 2 digitizer is rotated 90 degrees from the
+    /// screen (its X runs up the page, its Y across), so it needs the same
+    /// swap as `virtual_to_input`; the Paper Pro and Paper Pure do not.
+    fn frac_to_input(&self, fx: f32, fy: f32) -> (i32, i32) {
+        match self.device_model {
+            DeviceModel::RemarkablePaperPro | DeviceModel::RemarkablePaperPure => {
+                ((fx * self.max_x_value() as f32).round() as i32, (fy * self.max_y_value() as f32).round() as i32)
+            }
+            _ => (
+                ((1.0 - fy) * self.max_y_value() as f32).round() as i32,
+                (fx * self.max_x_value() as f32).round() as i32,
+            ),
+        }
+    }
+
+    /// Draw an SVG as pen strokes: each shape's outline is traced as one
+    /// continuous stroke (fast, crisp, erasable like handwriting). SVGs that are
+    /// not page-sized (768 x 1024) are rasterised instead, because the stroke
+    /// tracer works in the SVG's own units.
+    pub fn draw_svg_strokes(&mut self, svg_data: &str) -> Result<()> {
+        let opt = Options::default();
+        let tree = Tree::from_str(svg_data, &opt)?;
+        let size = tree.size();
+        let page_sized = (size.width() - VIRTUAL_WIDTH as f32).abs() < 1.0 && (size.height() - VIRTUAL_HEIGHT as f32).abs() < 1.0;
+        if page_sized {
+            self.draw_svg_paths(svg_data)
+        } else {
+            info!(
+                "SVG is {}x{}, not page-sized; drawing it with the raster renderer",
+                size.width(),
+                size.height()
+            );
+            let scale = 2u32;
+            let alpha = crate::util::svg_to_alpha_bitmap(svg_data, VIRTUAL_WIDTH * scale, VIRTUAL_HEIGHT * scale)?;
+            self.draw_bitmap_alpha_pressure(&alpha, scale)
+        }
+    }
+
     // Draw a single segment from prev to (px,py), emitting interpolated goto_xy events.
     // Returns updated step_count.
     fn draw_segment(&mut self, prev: (f32, f32), (px, py): (f32, f32), step_count: &mut usize, max_step: f32) -> Result<()> {
@@ -341,14 +378,12 @@ impl Pen {
     /// Draw a bitmap bidirectionally — alternating L→R and R→L per row.
     /// This cancels the directional bias that causes horizontal leaking.
     pub fn draw_bitmap_bidi(&mut self, bitmap: &[Vec<bool>], scale: u32) -> Result<()> {
-        let max_x = self.max_x_value() as f32;
-        let max_y = self.max_y_value() as f32;
         let bmp_w = VIRTUAL_WIDTH as f32 * scale as f32;
         let bmp_h = VIRTUAL_HEIGHT as f32 * scale as f32;
 
         let mut is_pen_down = false;
         for (y, row) in bitmap.iter().enumerate() {
-            let iy = ((y as f32 / bmp_h) * max_y).round() as i32;
+            let fy = y as f32 / bmp_h;
             let cols = row.len();
 
             // Collect runs in this row
@@ -376,16 +411,16 @@ impl Pen {
                 // For L→R draw start→end; for R→L draw end→start
                 let (draw_from, draw_to) = if go_left { (x_end, x_start) } else { (x_start, x_end) };
 
-                let ix_from = ((draw_from as f32 / bmp_w) * max_x).round() as i32;
-                let ix_to = ((draw_to as f32 / bmp_w) * max_x).round() as i32;
+                let from = self.frac_to_input(draw_from as f32 / bmp_w, fy);
+                let to = self.frac_to_input(draw_to as f32 / bmp_w, fy);
 
                 if is_pen_down {
                     self.pen_up()?;
                     sleep(Duration::from_millis(1));
                 }
-                self.pen_down_at((ix_from, iy))?;
+                self.pen_down_at(from)?;
                 sleep(Duration::from_millis(1));
-                self.goto_xy((ix_to, iy))?;
+                self.goto_xy(to)?;
                 self.pen_up()?;
                 is_pen_down = false;
                 sleep(Duration::from_millis(1));
@@ -404,8 +439,6 @@ impl Pen {
     /// Draw a bitmap column-first — scanning each column top→bottom.
     /// This rotates the directional bias 90° so it appears vertically instead of horizontally.
     pub fn draw_bitmap_col(&mut self, bitmap: &[Vec<bool>], scale: u32) -> Result<()> {
-        let max_x = self.max_x_value() as f32;
-        let max_y = self.max_y_value() as f32;
         let bmp_w = VIRTUAL_WIDTH as f32 * scale as f32;
         let bmp_h = VIRTUAL_HEIGHT as f32 * scale as f32;
 
@@ -417,25 +450,25 @@ impl Pen {
 
         #[allow(clippy::needless_range_loop)]
         for x in 0..cols {
-            let ix = ((x as f32 / bmp_w) * max_x).round() as i32;
+            let fx = x as f32 / bmp_w;
 
             let mut is_pen_down = false;
             let mut run_start: Option<usize> = None;
 
             for y in 0..rows {
                 let pixel = bitmap[y][x];
-                let iy = ((y as f32 / bmp_h) * max_y).round() as i32;
+                let point = self.frac_to_input(fx, y as f32 / bmp_h);
 
                 match (pixel, run_start) {
                     (true, None) => {
                         run_start = Some(y);
-                        self.pen_down_at((ix, iy))?;
+                        self.pen_down_at(point)?;
                         is_pen_down = true;
                         sleep(Duration::from_millis(1));
-                        self.goto_xy((ix, iy))?;
+                        self.goto_xy(point)?;
                     }
                     (true, Some(_)) => {
-                        self.goto_xy((ix, iy))?;
+                        self.goto_xy(point)?;
                     }
                     (false, Some(_)) => {
                         run_start = None;
@@ -460,13 +493,11 @@ impl Pen {
     /// Takes a Vec<Vec<u8>> of alpha values (0-255) and draws each pixel
     /// with pressure proportional to its alpha value.
     pub fn draw_bitmap_alpha_pressure(&mut self, alpha_bitmap: &[Vec<u8>], scale: u32) -> Result<()> {
-        let max_x = self.max_x_value() as f32;
-        let max_y = self.max_y_value() as f32;
         let bmp_w = VIRTUAL_WIDTH as f32 * scale as f32;
         let bmp_h = VIRTUAL_HEIGHT as f32 * scale as f32;
 
         for (y, row) in alpha_bitmap.iter().enumerate() {
-            let iy = ((y as f32 / bmp_h) * max_y).round() as i32;
+            let fy = y as f32 / bmp_h;
 
             let mut is_pen_down = false;
             let mut last_pressure: i32 = 0;
@@ -481,7 +512,7 @@ impl Pen {
                     continue;
                 }
 
-                let ix = ((x as f32 / bmp_w) * max_x).round() as i32;
+                let point = self.frac_to_input(x as f32 / bmp_w, fy);
                 let pressure = (alpha as f32 / 255.0 * 2630.0).round() as i32;
 
                 if !is_pen_down || pressure != last_pressure {
@@ -489,11 +520,11 @@ impl Pen {
                         self.pen_up()?;
                         sleep(Duration::from_millis(1));
                     }
-                    self.goto_xy_with_pressure((ix, iy), pressure)?;
+                    self.goto_xy_with_pressure(point, pressure)?;
                     is_pen_down = true;
                     last_pressure = pressure;
                 } else {
-                    self.goto_xy((ix, iy))?;
+                    self.goto_xy(point)?;
                 }
             }
 
@@ -631,5 +662,37 @@ impl Pen {
                 (x_input, y_input)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Pen, VIRTUAL_HEIGHT, VIRTUAL_WIDTH};
+    use crate::device::DeviceModel;
+
+    fn pen(device_model: DeviceModel) -> Pen {
+        Pen { device: None, device_model }
+    }
+
+    /// The raster renderers must land where the stroke renderers do. On the
+    /// reMarkable 2 they did not (the digitizer is rotated), which sent pen
+    /// strokes onto the on-screen keyboard.
+    #[test]
+    fn fractional_mapping_matches_virtual_mapping() {
+        for model in [DeviceModel::Remarkable2, DeviceModel::RemarkablePaperPro, DeviceModel::RemarkablePaperPure] {
+            let p = pen(model);
+            for &(x, y) in &[(0, 0), (768, 1024), (384, 512), (100, 900), (700, 50)] {
+                let a = p.virtual_to_input((x, y));
+                let b = p.frac_to_input(x as f32 / VIRTUAL_WIDTH as f32, y as f32 / VIRTUAL_HEIGHT as f32);
+                assert!((a.0 - b.0).abs() <= 1 && (a.1 - b.1).abs() <= 1, "{model:?} at ({x}, {y}): {a:?} vs {b:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn remarkable2_digitizer_is_rotated() {
+        let p = pen(DeviceModel::Remarkable2);
+        assert_eq!(p.frac_to_input(0.0, 0.0), (p.max_y_value(), 0));
+        assert_eq!(p.frac_to_input(1.0, 1.0), (0, p.max_x_value()));
     }
 }

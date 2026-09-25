@@ -11,10 +11,12 @@ model = "gpt-6-sol"
 # is picked up on the next tap, no restart needed.
 prompt = "coach.json"
 
-# Where a finger tap starts a run. TC = top centre of the screen (the brain icon on the
-# "Lined medium + coach" page template marks it). Also BC (bottom centre) or the corners
-# UR, UL, LR, LL; the corners collide with the tablet's close button and toolbar.
-trigger_corner = "TC"
+# Where a finger tap starts a run. BC = bottom centre of the screen (the face icon on the
+# "Lined medium + coach" page template marks it). Also TC (top centre) or the corners
+# UR, UL, LR, LL; the corners collide with the tablet's close button and toolbar, and
+# the top centre with the new-notebook dialog. Taps while the on-screen keyboard is
+# open are ignored, and a touch held longer than half a second does not count.
+trigger_corner = "BC"
 
 # The API key normally lives in /home/root/ghostwriter/.env as OPENAI_API_KEY=...
 # It can be set here instead:

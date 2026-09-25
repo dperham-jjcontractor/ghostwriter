@@ -403,6 +403,16 @@ async fn processing_inner(
         return Ok(());
     }
 
+    // A tap while the on-screen keyboard is open is a key press (the space bar
+    // sits in the bottom-centre zone), not a request: ignore it quietly.
+    if let Ok(png) = BASE64_STANDARD.decode(&base64_image) {
+        if Screenshot::keyboard_looks_open(&png) {
+            info!("On-screen keyboard looks open; ignoring this tap");
+            let _ = progress_tx.send(ProgressState::Done);
+            return Ok(());
+        }
+    }
+
     // Decide where the reply goes (before showing "Thinking"). This uses the
     // writer-only handle: the shared Touch is held by the trigger listener.
     if config.reply_on_new_page {

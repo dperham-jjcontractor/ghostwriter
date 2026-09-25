@@ -23,15 +23,14 @@
 <path style="fill:none;stroke-width:0.5;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(0%,0%,0%);stroke-opacity:1;stroke-miterlimit:10;" d="M 0 0 L 1404 0 " transform="matrix(1,0,0,-1,0,1595.5)"/>
 <path style="fill:none;stroke-width:0.5;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(0%,0%,0%);stroke-opacity:1;stroke-miterlimit:10;" d="M 0 0 L 1404 0 " transform="matrix(1,0,0,-1,0,1674.5)"/>
 <path style="fill:none;stroke-width:0.5;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(0%,0%,0%);stroke-opacity:1;stroke-miterlimit:10;" d="M 0 0 L 1404 0 " transform="matrix(1,0,0,-1,0,1753.5)"/>
-<g id="coach-tap-spot" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round">
-<circle cx="702" cy="64" r="52" stroke="#464646" stroke-width="2" stroke-dasharray="2 5"/>
-<ellipse cx="702" cy="57" rx="32" ry="25"/>
-<path d="M 702 32 C 693 46, 711 66, 702 82"/>
-<path d="M 676 50 q 6 -12 16 -4"/>
-<path d="M 678 64 q 8 10 14 0"/>
-<path d="M 712 50 q 6 -12 16 -4"/>
-<path d="M 712 64 q 8 10 14 0"/>
-<path d="M 706 80 l 5 12 M 698 81 l 3 11"/>
-<text x="702" y="108" font-family="Segoe UI, Noto Sans, sans-serif" font-size="14" font-weight="bold" fill="#464646" stroke="none" text-anchor="middle">tap</text>
+<g id="coach-tap-spot" stroke-linejoin="round">
+<ellipse cx="702" cy="1793" rx="60" ry="65" fill="#fff" stroke="none"/>
+<ellipse cx="702" cy="1793" rx="58" ry="63" fill="none" stroke="#464646" stroke-width="2" stroke-dasharray="2 5"/>
+<circle cx="702" cy="1809" r="33" fill="#fff" stroke="#000" stroke-width="3"/>
+<polygon points="668,1802 648,1780 664,1782 656,1750 678,1772 684,1740 698,1770 708,1736 718,1770 732,1744 734,1776 756,1772 736,1802" fill="#fff" stroke="#000" stroke-width="3"/>
+<rect x="668" y="1797" width="68" height="15" fill="#000"/>
+<path d="M 735 1804 L 752 1814 M 735 1803 L 754 1796" stroke="#000" stroke-width="5" fill="none"/>
+<path d="M 692 1820 Q 702 1832 714 1822" stroke="#000" stroke-width="3" fill="none"/>
+<text x="702" y="1852" font-family="Segoe UI, Noto Sans, sans-serif" font-size="14" font-weight="bold" fill="#464646" text-anchor="middle">tap</text>
 </g></g>
 </svg>

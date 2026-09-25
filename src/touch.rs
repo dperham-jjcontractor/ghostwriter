@@ -55,6 +55,9 @@ impl TriggerCorner {
 const VIRTUAL_WIDTH: u16 = 768;
 const VIRTUAL_HEIGHT: u16 = 1024;
 
+/// Longest finger contact that still counts as a tap (a resting palm is longer).
+const MAX_TAP_MS: u128 = 500;
+
 // Event codes
 const ABS_MT_SLOT: u16 = 47;
 const ABS_MT_TOUCH_MAJOR: u16 = 48;
@@ -225,6 +228,11 @@ impl Touch {
                                         held_ms,
                                         max_touch_major
                                     );
+                                    // A deliberate tap is short; a resting palm or a drag is not.
+                                    if held_ms > MAX_TAP_MS {
+                                        debug!("Touch held {} ms: not a tap, ignoring", held_ms);
+                                        continue;
+                                    }
                                     if Self::is_in_trigger_zone(x, y, trigger_corner) {
                                         debug!("Touch release in target zone!");
                                         debug!("wait_for_real_trigger: returning Ok()");

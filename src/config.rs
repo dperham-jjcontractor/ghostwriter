@@ -94,9 +94,9 @@ impl Default for Config {
             thinking: false,
             thinking_tokens: 5000,
             log_level: "info".to_string(),
-            // Top centre: the corners collide with the tablet's own close button,
-            // toolbar and the writing hand.
-            trigger_corner: "TC".to_string(),
+            // Bottom centre: the corners collide with the tablet's own close button
+            // and toolbar, the top centre with the new-notebook dialog.
+            trigger_corner: "BC".to_string(),
             web_server: false,
             web_port: 8080,
             openai_reasoning_effort: "none".to_string(),

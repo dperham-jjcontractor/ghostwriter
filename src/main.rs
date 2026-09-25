@@ -156,7 +156,7 @@ pub struct Args {
     #[serde(skip_serializing_if = "Option::is_none")]
     log_level: Option<String>,
 
-    /// Sets where a finger tap starts a run: TC (top-center, default), BC (bottom-center), UR, UL, LR or LL
+    /// Sets where a finger tap starts a run: BC (bottom-center, default), TC (top-center), UR, UL, LR or LL
     #[arg(long)]
     #[serde(skip_serializing_if = "Option::is_none")]
     trigger_corner: Option<String>,
@@ -468,7 +468,14 @@ async fn run_ghostwriter_loop(
 
     // Register tools; the last reply is captured so the memory updater can learn from it
     let last_reply: Arc<Mutex<Option<String>>> = shared!(None);
-    register_tools(&mut engine, Arc::clone(&keyboard), Arc::clone(&pen), Arc::clone(&touch), Arc::clone(&last_reply), &config)?;
+    register_tools(
+        &mut engine,
+        Arc::clone(&keyboard),
+        Arc::clone(&pen),
+        Arc::clone(&touch),
+        Arc::clone(&last_reply),
+        &config,
+    )?;
 
     let engine = Arc::new(TokioMutex::new(engine));
 

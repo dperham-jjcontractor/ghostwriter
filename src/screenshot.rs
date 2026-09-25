@@ -126,6 +126,25 @@ impl Screenshot {
         }
     }
 
+    /// True when the bottom part of the captured page is mostly black, which is
+    /// what the tablet's on-screen keyboard looks like. A tap while it is open
+    /// is a key press, not a request.
+    pub fn keyboard_looks_open(png: &[u8]) -> bool {
+        let Ok(img) = image::load_from_memory(png) else {
+            return false;
+        };
+        let img = img.to_luma8();
+        let (width, height) = (img.width(), img.height());
+        if height < 10 {
+            return false;
+        }
+        // The keyboard covers roughly the bottom third; sample the bottom quarter.
+        let top = height - height / 4;
+        let total = (width * (height - top)) as f32;
+        let dark = (top..height).flat_map(|y| (0..width).map(move |x| (x, y))).filter(|&(x, y)| img.get_pixel(x, y)[0] < 96).count();
+        dark as f32 / total > 0.5
+    }
+
     /// Fraction of pixels darker than mid-gray in a PNG. A value near 1.0 means
     /// the capture read the wrong memory and the model would see a black page.
     fn dark_fraction(png: &[u8]) -> Option<f32> {

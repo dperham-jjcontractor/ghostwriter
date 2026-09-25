@@ -11,9 +11,10 @@ UNIT=/etc/systemd/system/ghostwriter.service
 cd "$DIR"
 
 # Files copied from Windows may carry CR line endings; strip them.
-for f in install.sh ghostwriter.service ghostwriter.toml.example .env; do
+for f in install.sh fix-clock.sh ghostwriter.service ghostwriter.toml.example .env; do
   [ -f "$f" ] && sed -i 's/\r$//' "$f"
 done
+[ -f fix-clock.sh ] && chmod 755 fix-clock.sh
 
 # The binary arrives as ghostwriter-rm2 (the GitHub artifact name) or ghostwriter.
 if [ -f ghostwriter-rm2 ]; then

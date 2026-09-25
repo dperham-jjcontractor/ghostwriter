@@ -315,6 +315,37 @@ pub async fn processing_task(
     result
 }
 
+/// Script that sets the tablet clock from the network (installed by deploy/install.sh).
+const FIX_CLOCK_SCRIPT: &str = "/home/root/ghostwriter/fix-clock.sh";
+/// Unix time for 2025-01-01: anything earlier means the clock was never set
+/// after boot (the rM2's clock battery may be dead), and TLS would reject
+/// every certificate as "not yet valid".
+const PLAUSIBLE_CLOCK_SECS: u64 = 1_735_689_600;
+
+/// Make sure the system clock is plausible before talking to the API.
+fn ensure_clock_is_plausible() {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    if now >= PLAUSIBLE_CLOCK_SECS {
+        return;
+    }
+    if !std::path::Path::new(FIX_CLOCK_SCRIPT).exists() {
+        log::warn!("System clock is at {} (before 2025) and {} is missing; API calls may fail", now, FIX_CLOCK_SCRIPT);
+        return;
+    }
+    info!("System clock looks wrong ({}); running {}", now, FIX_CLOCK_SCRIPT);
+    match std::process::Command::new("sh").arg(FIX_CLOCK_SCRIPT).output() {
+        Ok(output) => info!(
+            "fix-clock: status {} {}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout).trim()
+        ),
+        Err(e) => log::warn!("fix-clock could not run: {}", e),
+    }
+}
+
 /// Load a prompt file and check it has the one field the run needs.
 fn load_prompt(name: &str) -> Result<serde_json::Value> {
     let raw = load_config(name)?;
@@ -419,6 +450,9 @@ async fn processing_inner(
         prompt.push_str("\n\nImage Analysis:\n");
         prompt.push_str(&seg_desc);
     }
+
+    // A wrong clock makes every TLS certificate look invalid; fix it before the request.
+    tokio::task::block_in_place(ensure_clock_is_plausible);
 
     // Prepare engine
     let mut engine_guard = engine.lock().await;

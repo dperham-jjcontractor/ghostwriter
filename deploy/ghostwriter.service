@@ -18,6 +18,9 @@ Environment=RUST_BACKTRACE=1
 EnvironmentFile=-/home/root/ghostwriter/.env
 # Wait (up to a minute) for the tablet UI before starting, then give it a moment.
 ExecStartPre=/bin/sh -c 'i=0; while ! pidof xochitl >/dev/null 2>&1; do i=$((i+1)); [ $i -ge 60 ] && exit 0; sleep 1; done; sleep 3'
+# Set the clock from the network if possible (dead clock battery + no NTP on this firmware);
+# the leading "-" means a failure here (no Wi-Fi yet) does not stop the service.
+ExecStartPre=-/bin/sh /home/root/ghostwriter/fix-clock.sh
 # No flags: everything comes from /home/root/.ghostwriter.toml.
 ExecStart=/home/root/ghostwriter/ghostwriter
 Restart=on-failure

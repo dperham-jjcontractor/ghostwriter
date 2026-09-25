@@ -35,6 +35,22 @@ impl DeviceModel {
             }
         }
 
+        // Older firmware has no /etc/hwrevision; the device tree still names the model.
+        for path in ["/sys/devices/soc0/machine", "/proc/device-tree/model"] {
+            if let Ok(model) = std::fs::read_to_string(path) {
+                let model = model.to_lowercase();
+                if model.contains("remarkable 2") {
+                    return DeviceModel::Remarkable2;
+                }
+                if model.contains("ferrari") {
+                    return DeviceModel::RemarkablePaperPro;
+                }
+                if model.contains("tatsu") {
+                    return DeviceModel::RemarkablePaperPure;
+                }
+            }
+        }
+
         // Nothing matched :shrug:
         DeviceModel::Unknown
     }

@@ -35,7 +35,7 @@ Write-Host "Prompt: $coach"
 Write-Host "Copying files to $target ..."
 ssh $target "mkdir -p /home/root/ghostwriter/prompts"
 scp $Binary "${target}:/home/root/ghostwriter/ghostwriter-rm2"
-scp (Join-Path $here "ghostwriter.service") (Join-Path $here "install.sh") (Join-Path $here "ghostwriter.toml.example") "${target}:/home/root/ghostwriter/"
+scp (Join-Path $here "ghostwriter.service") (Join-Path $here "install.sh") (Join-Path $here "fix-clock.sh") (Join-Path $here "ghostwriter.toml.example") "${target}:/home/root/ghostwriter/"
 scp $coach "${target}:/home/root/ghostwriter/prompts/coach.json"
 
 if ($SetKey) {

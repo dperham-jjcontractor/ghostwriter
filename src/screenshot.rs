@@ -141,7 +141,10 @@ impl Screenshot {
         // The keyboard covers roughly the bottom third; sample the bottom quarter.
         let top = height - height / 4;
         let total = (width * (height - top)) as f32;
-        let dark = (top..height).flat_map(|y| (0..width).map(move |x| (x, y))).filter(|&(x, y)| img.get_pixel(x, y)[0] < 96).count();
+        let dark = (top..height)
+            .flat_map(|y| (0..width).map(move |x| (x, y)))
+            .filter(|&(x, y)| img.get_pixel(x, y)[0] < 96)
+            .count();
         dark as f32 / total > 0.5
     }
 

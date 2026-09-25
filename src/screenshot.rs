@@ -374,12 +374,12 @@ impl Screenshot {
         if bpp == 4 {
             // Firmware 3.24+: data is stored portrait (1404×1872), 32-bit BGRA.
             // Values are already full 8-bit range — don't apply the old aggressive curve.
-            let processed: Vec<u8> = raw_data.chunks_exact(4).map(|chunk| chunk[0]).collect();
+            let processed: Vec<u8> = raw_data.as_chunks::<4>().0.iter().map(|chunk| chunk[0]).collect();
             let img = GrayImage::from_raw(1404, 1872, processed).ok_or_else(|| anyhow::anyhow!("Failed to create image from raw data"))?;
             encoder.write_image(img.as_raw(), img.width(), img.height(), image::ExtendedColorType::L8)?;
         } else {
             // Pre-3.24: data is stored landscape (1872×1404), 16-bit RGB565. Take high byte.
-            let processed: Vec<u8> = raw_data.chunks_exact(2).map(|chunk| Self::apply_curves(chunk[1])).collect();
+            let processed: Vec<u8> = raw_data.as_chunks::<2>().0.iter().map(|chunk| Self::apply_curves(chunk[1])).collect();
             let img = GrayImage::from_raw(self.screen_width(), self.screen_height(), processed)
                 .ok_or_else(|| anyhow::anyhow!("Failed to create image from raw data"))?;
             let rotated_img = image::imageops::rotate270(&img);

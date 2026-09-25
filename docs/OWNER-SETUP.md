@@ -70,14 +70,19 @@ The tablet is on an old firmware. Upgrading is recommended so the capture path i
 
 ## Tuning the prompt
 
-The coach's instructions are `prompts/coach.txt`. Edit it in Notepad, then:
+The coach's instructions are two text files:
+
+- `prompts/coach.txt`: the generic coaching rules (in git).
+- `prompts/store-context.txt`: background about her store and her job (kept out of git, because this repository is public).
+
+Edit either in Notepad, then:
 
 ```powershell
 .\tools\make-prompt-json.ps1
-scp prompts\coach.json root@10.11.99.1:/home/root/ghostwriter/prompts/
+scp prompts\coach.local.json root@10.11.99.1:/home/root/ghostwriter/prompts/coach.json
 ```
 
-The next tap uses the new text; no rebuild, no restart. Keep replies under about 700 characters: the keyboard types roughly 100 characters per second and the reply stays on the page.
+The next tap uses the new text; no rebuild, no restart. `deploy.ps1` sends the same personalised file whenever it runs. Keep replies under about 700 characters: the keyboard types roughly 100 characters per second and the reply stays on the page.
 
 To try the cheaper model, set `model = "gpt-6-luna"` in `/home/root/.ghostwriter.toml` and restart the service.
 

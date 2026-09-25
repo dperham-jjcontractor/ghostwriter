@@ -45,6 +45,13 @@ pub struct Config {
     /// gpt-6 models only allow tool calls on chat completions with "none",
     /// which also gives the fastest replies.
     pub openai_reasoning_effort: String,
+    /// Turn to the next page (a new one at the end of the notebook) before
+    /// typing the reply, so it never lands on top of the handwriting.
+    pub reply_on_new_page: bool,
+    /// Before drawing, tap the pen palette to select the fineliner (positions
+    /// verified on the Paper Pro only; off by default so nothing random is
+    /// tapped on other models; drawings then use whichever pen is selected).
+    pub select_pen_before_drawing: bool,
     // Simulation/test mode options
     pub test_mode: Option<String>,
     pub test_device_model: Option<DeviceModel>,
@@ -84,6 +91,8 @@ impl Default for Config {
             web_server: false,
             web_port: 8080,
             openai_reasoning_effort: "none".to_string(),
+            reply_on_new_page: true,
+            select_pen_before_drawing: false,
             // Simulation/test mode defaults
             test_mode: None,
             test_device_model: None,

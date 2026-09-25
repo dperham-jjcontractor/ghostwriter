@@ -23,8 +23,14 @@ trigger_corner = "UR"
 # gpt-6 models to use tools on this endpoint; "low" or "medium" for slower, deeper replies.
 openai_reasoning_effort = "none"
 
-# Text only: the assistant types, it never draws on the page.
-no_svg = true
+# Where the reply goes. true: the coach turns to the next page (a new one at the end
+# of the notebook) and types there; swipe right to get back to the notes. false: the
+# reply is typed on the same page, which can land on top of handwriting.
+reply_on_new_page = true
+
+# Drawing. false lets the coach draw pictures with the pen when asked (they go on the
+# reply page, never on the notes). true makes it type only.
+no_svg = false
 
 # info is enough day to day. debug logs are large and include request details.
 log_level = "info"

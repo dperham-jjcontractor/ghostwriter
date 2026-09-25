@@ -654,6 +654,7 @@ fn register_tools(
         let keyboard_clone = Arc::clone(&keyboard);
         let pen_clone = Arc::clone(&pen);
         let test_mode = config.is_test_mode();
+        let select_pen = config.select_pen_before_drawing;
 
         let tool_config_draw_svg = load_config("tool_draw_svg.json")?;
         engine.register_tool(
@@ -676,7 +677,7 @@ fn register_tools(
                 // Switch to fineliner before drawing, remember original tool for restore
                 // Use a fresh Touch instance to avoid deadlock with trigger_task which
                 // holds the shared touch RwLock indefinitely while waiting for user trigger
-                let previous_tool = if !no_draw && !test_mode {
+                let previous_tool = if select_pen && !no_draw && !test_mode {
                     tokio::task::block_in_place(|| {
                         tokio::runtime::Handle::current().block_on(async { Touch::new(false, TriggerCorner::UpperRight).select_fineliner().await })
                     })
@@ -694,7 +695,7 @@ fn register_tools(
                 drop(pen);
 
                 // Restore the original tool after drawing
-                if !no_draw && !test_mode && previous_tool != PenTool::Unknown {
+                if select_pen && !no_draw && !test_mode && previous_tool != PenTool::Unknown {
                     tokio::task::block_in_place(|| {
                         tokio::runtime::Handle::current().block_on(async { Touch::new(false, TriggerCorner::UpperRight).restore_tool(previous_tool).await })
                     })

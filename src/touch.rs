@@ -324,6 +324,22 @@ impl Touch {
         }
     }
 
+    /// Swipe right-to-left across the middle of the screen: the next page, or
+    /// a new page when already on the last one. Used to keep typed replies off
+    /// the page the user is writing on.
+    pub async fn swipe_to_next_page(&mut self) -> Result<()> {
+        let (x_start, x_end, y) = (700, 100, 512);
+        self.touch_start((x_start, y)).await?;
+        let steps = 20;
+        for i in 1..=steps {
+            let x = x_start + (x_end - x_start) * i / steps;
+            self.goto_xy((x, y)).await?;
+            sleep(Duration::from_millis(10)).await;
+        }
+        self.touch_stop().await?;
+        Ok(())
+    }
+
     pub async fn tap_middle_bottom(&mut self) -> Result<()> {
         self.touch_start((384, 1023)).await?; // middle bottom
         sleep(Duration::from_millis(100)).await;

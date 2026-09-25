@@ -395,9 +395,19 @@ async fn processing_inner(
         return Ok(());
     }
 
-    // Tap middle bottom to position the text cursor below the notes (before showing "Thinking").
-    // This uses the writer-only handle: the shared Touch is held by the trigger listener.
-    if let Err(e) = tap_touch.lock().await.tap_middle_bottom().await {
+    // Decide where the reply goes (before showing "Thinking"). This uses the
+    // writer-only handle: the shared Touch is held by the trigger listener.
+    if config.reply_on_new_page {
+        // Turn to the next page (a new one at the end of the notebook) so the
+        // typed reply never lands on top of the handwriting.
+        info!("Turning to the next page for the reply");
+        if let Err(e) = tap_touch.lock().await.swipe_to_next_page().await {
+            info!("Failed to swipe to the next page: {}", e);
+        }
+        // Give the e-ink page turn time to finish before typing.
+        sleep(Duration::from_millis(1500)).await;
+    } else if let Err(e) = tap_touch.lock().await.tap_middle_bottom().await {
+        // Same-page mode: tap bottom-middle so the text cursor moves below the notes.
         info!("Failed to tap middle bottom: {}", e);
     }
 

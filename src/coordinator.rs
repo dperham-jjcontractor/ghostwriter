@@ -332,16 +332,16 @@ fn ensure_clock_is_plausible() {
         return;
     }
     if !std::path::Path::new(FIX_CLOCK_SCRIPT).exists() {
-        log::warn!("System clock is at {} (before 2025) and {} is missing; API calls may fail", now, FIX_CLOCK_SCRIPT);
+        log::warn!(
+            "System clock is at {} (before 2025) and {} is missing; API calls may fail",
+            now,
+            FIX_CLOCK_SCRIPT
+        );
         return;
     }
     info!("System clock looks wrong ({}); running {}", now, FIX_CLOCK_SCRIPT);
     match std::process::Command::new("sh").arg(FIX_CLOCK_SCRIPT).output() {
-        Ok(output) => info!(
-            "fix-clock: status {} {}",
-            output.status,
-            String::from_utf8_lossy(&output.stdout).trim()
-        ),
+        Ok(output) => info!("fix-clock: status {} {}", output.status, String::from_utf8_lossy(&output.stdout).trim()),
         Err(e) => log::warn!("fix-clock could not run: {}", e),
     }
 }
